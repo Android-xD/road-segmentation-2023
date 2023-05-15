@@ -34,9 +34,13 @@ def output_target_alpha(input, output,alpha):
     plt.imshow(img)
     plt.show()
 
-def output_target_heat(input, output, alpha):
+def output_target_heat(input, output, alpha,target = None):
     img = np.transpose(input.squeeze(), (1, 2, 0)).numpy()
     img = (img + 1) / 2
+
+    if not target is None:
+        target = target.squeeze().numpy()
+        img[cv2.Canny(target.astype(np.uint8)*255, 20, 40) != 0] = (0, 0, 1)
 
     mask = output.squeeze().numpy()
     color_map = plt.get_cmap('jet')  # choose a colormap

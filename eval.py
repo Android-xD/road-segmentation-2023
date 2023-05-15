@@ -7,8 +7,10 @@ import torch
 import visualize as vis
 import torchvision.transforms as T
 import seg_net_lite
+from deeplabv3 import createDeepLabv3,load_model
 from sklearn.metrics import f1_score, accuracy_score
 
+torch.manual_seed(0)
 
 
 def eval(model, dataset:CustomImageDataset, num_samples=10):
@@ -17,7 +19,7 @@ def eval(model, dataset:CustomImageDataset, num_samples=10):
         for j in range(num_samples):
             img, target = dataset[i]
 
-            output = model(img.unsqueeze(0))
+            output = model(model.preprocess(img.unsqueeze(0)))
             output = dataset.affineTransform.backward(output)
             #combined[output>0.01] = combined[output>0.01]*0.5 + output*0.5
             img = dataset.affineTransform.backward(img)
@@ -37,10 +39,33 @@ if __name__ == '__main__':
 
     dataset = CustomImageDataset(training_set)
 
+    train_dataset, val_dataset = test_train_split(dataset, 0.8)
 
-    model = seg_net_lite.get_seg_net()
-    model_state_file = os.path.join('out', 'model_best.pth.tar')
-    print('=> loading model from {}'.format(model_state_file))
-    state_dict = torch.load(model_state_file, map_location=torch.device('cpu'))
+    train_loader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=4,
+        shuffle=True,
+        num_workers=1,
+        pin_memory=True
+    )
+    val_loader = torch.utils.data.DataLoader(
+        val_dataset,
+        batch_size=4,
+        shuffle=False,
+        num_workers=1,
+        pin_memory=True
+    )
+
+    model, preprocess = createDeepLabv3(2, 400)
+    state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
-    eval(model, dataset, 100)
+
+    for i, (input, target) in enumerate(val_loader):
+        # Move input and target tensors to the device (CPU or GPU)
+        input = input.to(device)
+        target = target.to(device)
+        output = model(preprocess(input))['out']
+        for j in range(target.shape[0]):
+            vis.output_target_heat(input.detach()[j] / 255, output.detach()[j, 1], 0.3,target[j])
+        print(torch.count_nonzero(target==output[:,1].round())/target.numel())
+
