@@ -52,7 +52,7 @@ def save_checkpoint(states, is_best, output_dir,
         filename (str): checkpoint name
     """
     os.makedirs(output_dir, exist_ok=True)
-    torch.save(states, os.path.join(output_dir, filename))
+    #torch.save(states, os.path.join(output_dir, filename))
     if is_best and 'state_dict' in states:
         torch.save(states['state_dict'],
                    os.path.join(output_dir, 'model_best.pth.tar'))
@@ -104,7 +104,7 @@ if __name__ == '__main__':
         weight /= torch.sum(weight)
         # Compute loss
         weight = weight.to(device)
-        loss_fn = torch.nn.CrossEntropyLoss(weight=weight)
+        loss_fn = torch.nn.CrossEntropyLoss()#weight=weight)
         target = target.squeeze(1)
         return loss_fn(output, target)
 
@@ -175,7 +175,7 @@ if __name__ == '__main__':
             'perf': val_loss,
             'last_epoch': epoch,
             'optimizer': optimizer.state_dict(),
-        }, model, args.out_dir, filename=f'checkpoint{epoch+1}.pth.tar')
+        }, True, args.out_dir, filename=f'checkpoint{epoch+1}.pth.tar')
 
     with torch.no_grad():
         for i, (input, target) in enumerate(val_loader):
@@ -185,7 +185,7 @@ if __name__ == '__main__':
 
             # Forward pass
             output = model(preprocess(input))['out']
-            vis.output_target_alpha(input.detach(), output.detach(), 0.3)
+            vis.output_target_alpha(input.detach().cpu(), output.detach().cpu(), 0.3)
             # Compute loss
             loss = loss_fn(output, target)
 
