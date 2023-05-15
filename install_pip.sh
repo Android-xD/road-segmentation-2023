@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 set -e
-
+source startup.sh
 mkdir -p /cluster/scratch/horatan/CIL
 echo "Creating virtual environment"
-python3.8 -m venv /cluster/scratch/horatan/CIL
+python -m venv /cluster/scratch/horatan/CIL
 echo "Activating virtual environment"
 
 source /cluster/scratch/horatan/CIL/bin/activate
 
-/cluster/scratch/horatan/CIL/bin/pip install -r requirements.txt
+#/cluster/scratch/horatan/CIL/bin/pip install -r requirements.txt

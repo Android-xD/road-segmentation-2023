@@ -29,7 +29,7 @@ def createDeepLabv3(outputchannels=1, input_size=512):
     preprocess.resize_size = [input_size]
 
     # Move the model to the GPU
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
 
     return model, preprocess

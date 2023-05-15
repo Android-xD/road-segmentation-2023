@@ -65,7 +65,7 @@ if __name__ == '__main__':
     use_cuda = torch.cuda.is_available()
 
     # Define the device to be used for computation
-    device = torch.device("cuda" if use_cuda else "cpu")
+    device = torch.device("cuda:0" if use_cuda else "cpu")
 
 
     dataset = CustomImageDataset(training_set)
@@ -103,6 +103,7 @@ if __name__ == '__main__':
         weight = torch.tensor([1/(1-fg_ratio), 1/fg_ratio])
         weight /= torch.sum(weight)
         # Compute loss
+        weight = weight.to(device)
         loss_fn = torch.nn.CrossEntropyLoss(weight=weight)
         target = target.squeeze(1)
         return loss_fn(output, target)
@@ -122,8 +123,8 @@ if __name__ == '__main__':
 
             # Forward pass
             output = model(preprocess(input))['out']
-            if i% 2 ==0:
-                vis.output_target_heat(input.detach()[0]/255, output.detach()[0, 1], 0.3)
+            #if i% 2 ==0:
+            #    vis.output_target_heat(input.detach()[0]/255, output.detach()[0, 1], 0.3)
 
             loss = loss_fn(output, target)
 
@@ -161,10 +162,10 @@ if __name__ == '__main__':
                 # Accumulate loss
                 val_loss += loss.item()
 
-                pred = output.round().detach().numpy()
-                true = target.detach().numpy()
-                val_f1 += f1_score(true.ravel(), pred.ravel())
-                val_accuracy += accuracy_score(true.ravel(), pred.ravel())
+                pred = output.round().detach().cpu().numpy()
+                true = target.detach().cpu().numpy()
+                #val_f1 += f1_score(true.ravel(), pred.ravel())
+                #val_accuracy += accuracy_score(true.ravel(), pred.ravel())
 
         # Print progress
         print(f'Validation Epoch: {epoch+1}\tLoss: {val_loss/len(val_loader):.4f}\t F1: {val_f1/len(val_loader)} \t Accuracy: {val_accuracy/len(val_loader)}')
