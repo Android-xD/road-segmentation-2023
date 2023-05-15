@@ -185,7 +185,7 @@ if __name__ == '__main__':
 
             # Forward pass
             output = model(preprocess(input))['out']
-            vis.output_target_alpha(input.detach().cpu(), output.detach().cpu(), 0.3)
+            # vis.output_target_alpha(input.detach().cpu(), output.detach().cpu(), 0.3)
             # Compute loss
             loss = loss_fn(output, target)
 
