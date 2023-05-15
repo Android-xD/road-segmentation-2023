@@ -36,7 +36,7 @@ class GeometricTransform:
             x = TF.vflip(x)
         if self.hfilp:
             x = TF.hflip(x)
-        x = self.pad(torch.tensor(x, dtype=float))
+        x = self.pad(x.to(torch.float))
         x = TF.affine(x, self.angle, self.translate, self.scale, self.shear, interpolation=TF.InterpolationMode.BILINEAR)
         x = TF.center_crop(x, self.output_size)
         return x

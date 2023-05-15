@@ -25,7 +25,7 @@ def createDeepLabv3(outputchannels=1, input_size=512):
     # Set the model in training mode
     model.train()
 
-    preprocess = weights.transforms()
+    preprocess = weights.transforms(antialias=True)
     preprocess.resize_size = [input_size]
 
     # Move the model to the GPU

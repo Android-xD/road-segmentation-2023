@@ -47,11 +47,11 @@ class CustomImageDataset(Dataset):
 
         # image = self.affineTransform.backward(image)
         # mask = self.affineTransform.backward(mask)
-        image = torch.tensor(image, dtype=torch.uint8)
+        image = image.to(torch.uint8)
         if self.color_transform:
             image = self.color_transform(image)
 
-        return image, torch.tensor(mask, dtype=torch.long)
+        return image, mask.to(torch.long)
 
 if __name__ == "__main__":
     dataset = CustomImageDataset(r"./data/training")
