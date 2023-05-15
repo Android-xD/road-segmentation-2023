@@ -7,7 +7,7 @@ DeepLabv3 Model download and change the head for your prediction.
 from torchvision import models
 from torchvision.models.segmentation import DeepLabV3_ResNet50_Weights
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
-
+import torch
 
 def createDeepLabv3(outputchannels=1, input_size=512):
     """DeepLabv3 class with custom head.
@@ -27,6 +27,11 @@ def createDeepLabv3(outputchannels=1, input_size=512):
 
     preprocess = weights.transforms()
     preprocess.resize_size = [input_size]
+
+    # Move the model to the GPU
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+
     return model, preprocess
 
 
@@ -47,12 +52,16 @@ def load_model(model_state_file):
 if __name__ == "__main__":
     import matplotlib.pyplot as plt
     import numpy as np
-    import torch
     from torchvision import transforms as T
     import cv2
 
-    img_path = r"C:\Users\andro\git\road-segmentation-2023\data\training\images\satimage_0.png"
-    label_path = r"C:\Users\andro\git\road-segmentation-2023\data\training\groundtruth\satimage_0.png"
+
+    # Check if GPU is available
+    use_cuda = torch.cuda.is_available()
+    device = torch.device("cuda" if use_cuda else "cpu")
+
+    img_path = r"./data/training/images/satimage_0.png"
+    label_path = r"./data/training/groundtruth/satimage_0.png"
 
     image = cv2.imread(img_path)
     label = cv2.imread(label_path, 0)
@@ -73,6 +82,7 @@ if __name__ == "__main__":
     print(image.shape)
     model, preprocess = createDeepLabv3(1, size)
     model.eval()
+    image = image.to(device)
     batch = preprocess(image)
     print(batch.shape)
     output = model(batch)["out"].detach()
