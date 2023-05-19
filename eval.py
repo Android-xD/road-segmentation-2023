@@ -57,33 +57,22 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(2, 512)
+    model, preprocess = createDeepLabv3(2, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
-
-    import torch.nn as nn
-    import torchvision.transforms as T
-    pad = nn.ReflectionPad2d(56)
-    crop = T.CenterCrop(400)
 
     for i, (input, target) in enumerate(val_loader):
         # Move input and target tensors to the device (CPU or GPU)
         input = input.to(device)
-        #print(input.shape, input.dtype)
-        #input = input.squeeze()
-        input = pad(input.squeeze().to(float)).to(torch.uint8)
-        #print(input.shape, input.dtype)
+        input = input.squeeze()
         target = target.to(device)
         output = model(preprocess(input))['out']
-
-        output = crop(output)
-        input = crop(input)
         # normalize the output
         output = F.softmax(output)
-        #for j in range(target.shape[0]):
-            #vis.output_target_heat(input.detach()[j] / 255, output.detach()[j, 1], 0.3, target[j])
-            #plt.imshow(output[j, 1].detach().cpu().numpy())
-            #plt.show()
+        for j in range(target.shape[0]):
+            vis.output_target_heat(input.detach()[j] / 255, output.detach()[j, 1], 0.3, target[j])
+            plt.imshow(output[j, 1].detach().cpu().numpy())
+            plt.show()
         print(torch.count_nonzero(target == (output[:, 1:2] > 0.5))/target.numel())
 
 """
