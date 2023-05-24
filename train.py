@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from dataset import CustomImageDataset,test_train_split
 import numpy as np
 import torch
+import time
 import visualize as vis
 import torchvision.transforms as T
 from sklearn.metrics import f1_score, accuracy_score
@@ -67,8 +68,8 @@ if __name__ == '__main__':
 
     # Define the device to be used for computation
     device = torch.device("cuda:0" if use_cuda else "cpu")
-
-    writer = SummaryWriter(log_dir=f"out/logs")
+    run_id = time.strftime("_%Y%m%d-%H%M%S")
+    writer = SummaryWriter(log_dir=f"out/logs/{run_id}")
 
     dataset = CustomImageDataset(training_set)
 
@@ -112,6 +113,7 @@ if __name__ == '__main__':
         # train for one epoch
         model.train()
         train_loss = 0.0
+        train_accuracy = 0.0
         for i, (input, target) in enumerate(train_loader):
             # Move input and target tensors to the device (CPU or GPU)
             input = input.to(device)
@@ -131,15 +133,15 @@ if __name__ == '__main__':
 
             # Accumulate loss
             train_loss += loss.item()
-
+            train_accuracy += torch.count_nonzero(target == (output[:, 1:2] > 0.5))/target.numel()
 
 
             # Print progress
             if (i+1) % args.frequent == 0:
                 print(f'Train Epoch: {epoch+1} [{i+1}/{len(train_loader)}]\t'
                       f'Loss: {train_loss / (i + 1):.4f}')
-        writer.add_scalar("Loss/train", train_loss / (i + 1), epoch)
-
+        train_accuracy/=i+1
+        train_loss/=i+1
         # Validation
         model.eval()
         val_loss = 0.0
@@ -162,17 +164,19 @@ if __name__ == '__main__':
                 pred = output.round().detach().cpu().numpy()
                 true = target.detach().cpu().numpy()
                 #val_f1 += f1_score(true.ravel(), pred.ravel())
-                #val_accuracy += accuracy_score(true.ravel(), pred.ravel())
+                val_accuracy += torch.count_nonzero(target == (output[:, 1:2] > 0.5))/target.numel()
+            val_accuracy/=i+1
+            val_loss/=i+1	
 
         is_best = val_loss < best_score
         if is_best:
             best_score = val_loss
 
         # Print progress
-        print(f'Validation Epoch: {epoch+1}\tLoss: {val_loss/len(val_loader):.4f}\t F1: {val_f1/len(val_loader)} \t Accuracy: {val_accuracy/len(val_loader)}')
-        writer.add_scalar("Loss/val", val_loss / (i + 1), epoch)
+        print(f'Validation Epoch: {epoch+1}\tLoss: {val_loss:.4f}\t F1: {val_f1} \t Accuracy: {val_accuracy}')
+        writer.add_scalars("Loss",{"val":val_loss,"train": train_loss}, epoch)
         writer.add_scalar("F1/val", val_f1 / (i + 1), epoch)
-        writer.add_scalar("Accuracy/val", val_accuracy / (i + 1), epoch)
+        writer.add_scalars("Accuracy", {"val": val_accuracy,"train": train_accuracy}, epoch)
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
