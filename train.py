@@ -8,6 +8,7 @@ import torchvision.transforms as T
 from sklearn.metrics import f1_score, accuracy_score
 from deeplabv3 import createDeepLabv3, load_model
 import os
+from tensorboardX import SummaryWriter
 
 torch.manual_seed(0)
 
@@ -67,6 +68,7 @@ if __name__ == '__main__':
     # Define the device to be used for computation
     device = torch.device("cuda:0" if use_cuda else "cpu")
 
+    writer = SummaryWriter(log_dir=f"out/logs")
 
     dataset = CustomImageDataset(training_set)
 
@@ -87,10 +89,6 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    # for i in range(10,140):
-    #    img, mask = train_dataset[i]
-    #    vis.show_img_mask_alpha(img, mask, 0.3)
-
     model, preprocess = createDeepLabv3(2, 400)
 
     args = parse_args()
@@ -109,6 +107,7 @@ if __name__ == '__main__':
         return loss_fn(output, target)
 
     train_epochs = 20  # 20 epochs should be enough, if your implementation is right
+    best_score = 0
     for epoch in range(train_epochs):
         # train for one epoch
         model.train()
@@ -123,8 +122,6 @@ if __name__ == '__main__':
 
             # Forward pass
             output = model(preprocess(input))['out']
-            #if i% 2 ==0:
-            #    vis.output_target_heat(input.detach()[0]/255, output.detach()[0, 1], 0.3)
 
             loss = loss_fn(output, target)
 
@@ -140,8 +137,8 @@ if __name__ == '__main__':
             # Print progress
             if (i+1) % args.frequent == 0:
                 print(f'Train Epoch: {epoch+1} [{i+1}/{len(train_loader)}]\t'
-                      f'Loss: {train_loss/args.frequent:.4f}')
-                train_loss = 0.0
+                      f'Loss: {train_loss / (i + 1):.4f}')
+        writer.add_scalar("Loss/train", train_loss / (i + 1), epoch)
 
         # Validation
         model.eval()
@@ -167,30 +164,19 @@ if __name__ == '__main__':
                 #val_f1 += f1_score(true.ravel(), pred.ravel())
                 #val_accuracy += accuracy_score(true.ravel(), pred.ravel())
 
+        is_best = val_loss < best_score
+        if is_best:
+            best_score = val_loss
+
         # Print progress
         print(f'Validation Epoch: {epoch+1}\tLoss: {val_loss/len(val_loader):.4f}\t F1: {val_f1/len(val_loader)} \t Accuracy: {val_accuracy/len(val_loader)}')
+        writer.add_scalar("Loss/val", val_loss / (i + 1), epoch)
+        writer.add_scalar("F1/val", val_f1 / (i + 1), epoch)
+        writer.add_scalar("Accuracy/val", val_accuracy / (i + 1), epoch)
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
             'perf': val_loss,
             'last_epoch': epoch,
             'optimizer': optimizer.state_dict(),
-        }, True, args.out_dir, filename=f'checkpoint{epoch+1}.pth.tar')
-
-    with torch.no_grad():
-        for i, (input, target) in enumerate(val_loader):
-            # Move input and target tensors to the device (CPU or GPU)
-            input = input.to(device)
-            target = target.to(device)
-
-            # Forward pass
-            output = model(preprocess(input))['out']
-            # vis.output_target_alpha(input.detach().cpu(), output.detach().cpu(), 0.3)
-            # Compute loss
-            loss = loss_fn(output, target)
-
-            # Accumulate loss
-            val_loss += loss.item()
-
-    # Print progress
-    print(f'Validation Epoch: {epoch+1}\tLoss: {val_loss/len(val_loader):.4f}')
+        }, is_best, args.out_dir, filename=f'checkpoint{epoch+1}.pth.tar')
