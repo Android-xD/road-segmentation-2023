@@ -3,11 +3,14 @@ import matplotlib.pyplot as plt
 from dataset import CustomImageDataset,test_train_split
 import numpy as np
 import torch
+import time
 import visualize as vis
 import torchvision.transforms as T
 from sklearn.metrics import f1_score, accuracy_score
 from deeplabv3 import createDeepLabv3, load_model
 import os
+from tensorboardX import SummaryWriter
+import torch.optim.lr_scheduler as lr_scheduler
 
 torch.manual_seed(0)
 
@@ -66,7 +69,8 @@ if __name__ == '__main__':
 
     # Define the device to be used for computation
     device = torch.device("cuda:0" if use_cuda else "cpu")
-
+    run_id = time.strftime("_%Y%m%d-%H%M%S")
+    writer = SummaryWriter(log_dir=f"out/logs/{run_id}")
 
     dataset = CustomImageDataset(training_set)
 
@@ -87,14 +91,11 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    # for i in range(10,140):
-    #    img, mask = train_dataset[i]
-    #    vis.show_img_mask_alpha(img, mask, 0.3)
-
     model, preprocess = createDeepLabv3(2, 400)
 
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
 
     def loss_fn(output,target):
         """ balanced binary cross entropy loss"""
@@ -108,11 +109,13 @@ if __name__ == '__main__':
         target = target.squeeze(1)
         return loss_fn(output, target)
 
-    train_epochs = 20  # 20 epochs should be enough, if your implementation is right
+    train_epochs = 25  # 20 epochs should be enough, if your implementation is right
+    best_score = 0
     for epoch in range(train_epochs):
         # train for one epoch
         model.train()
         train_loss = 0.0
+        train_accuracy = 0.0
         for i, (input, target) in enumerate(train_loader):
             # Move input and target tensors to the device (CPU or GPU)
             input = input.to(device)
@@ -123,8 +126,6 @@ if __name__ == '__main__':
 
             # Forward pass
             output = model(preprocess(input))['out']
-            #if i% 2 ==0:
-            #    vis.output_target_heat(input.detach()[0]/255, output.detach()[0, 1], 0.3)
 
             loss = loss_fn(output, target)
 
@@ -134,15 +135,18 @@ if __name__ == '__main__':
 
             # Accumulate loss
             train_loss += loss.item()
-
+            train_accuracy += torch.count_nonzero(target == (output[:, 1:2] > 0.5))/target.numel()
 
 
             # Print progress
             if (i+1) % args.frequent == 0:
                 print(f'Train Epoch: {epoch+1} [{i+1}/{len(train_loader)}]\t'
-                      f'Loss: {train_loss/args.frequent:.4f}')
-                train_loss = 0.0
-
+                      f'Loss: {train_loss / (i + 1):.4f}')
+        
+        scheduler.step()
+        # print(f"lr{optimizer.param_groups[0]['lr']}")
+        train_accuracy/=i+1
+        train_loss/=i+1
         # Validation
         model.eval()
         val_loss = 0.0
@@ -162,35 +166,34 @@ if __name__ == '__main__':
                 # Accumulate loss
                 val_loss += loss.item()
 
-                pred = output.round().detach().cpu().numpy()
-                true = target.detach().cpu().numpy()
-                #val_f1 += f1_score(true.ravel(), pred.ravel())
-                #val_accuracy += accuracy_score(true.ravel(), pred.ravel())
+                               
+                val_accuracy += torch.count_nonzero(target == (output[:, 1:2] > 0.5))/target.numel()
+                # multiclass -> read the tensor at index 1 for street, the threshold 0.5 should be tuned on the training set
+                pred = (output[:, 1:2] > 0.5)
+                TP = torch.count_nonzero(target[1 == pred])
+                recall = TP / (torch.count_nonzero(target)+1)
+                
+                precision = TP / (torch.count_nonzero(pred)+1)
+                # print(f"Recall: {recall} Precision: {precision}")
+                val_f1 += 2./(1/recall + 1/precision)
+
+            val_accuracy/=i+1
+            val_loss/=i+1
+            val_f1/=i+1	
+
+        is_best = val_loss < best_score
+        if is_best:
+            best_score = val_loss
 
         # Print progress
-        print(f'Validation Epoch: {epoch+1}\tLoss: {val_loss/len(val_loader):.4f}\t F1: {val_f1/len(val_loader)} \t Accuracy: {val_accuracy/len(val_loader)}')
+        print(f'Validation Epoch: {epoch+1}\tLoss: {val_loss:.4f}\t F1: {val_f1} \t Accuracy: {val_accuracy}')
+        writer.add_scalars("Loss",{"val":val_loss,"train": train_loss}, epoch)
+        writer.add_scalar("F1/val", val_f1 / (i + 1), epoch)
+        writer.add_scalars("Accuracy", {"val": val_accuracy,"train": train_accuracy}, epoch)
         save_checkpoint({
             'epoch': epoch + 1,
             'state_dict': model.state_dict(),
             'perf': val_loss,
             'last_epoch': epoch,
             'optimizer': optimizer.state_dict(),
-        }, True, args.out_dir, filename=f'checkpoint{epoch+1}.pth.tar')
-
-    with torch.no_grad():
-        for i, (input, target) in enumerate(val_loader):
-            # Move input and target tensors to the device (CPU or GPU)
-            input = input.to(device)
-            target = target.to(device)
-
-            # Forward pass
-            output = model(preprocess(input))['out']
-            # vis.output_target_alpha(input.detach().cpu(), output.detach().cpu(), 0.3)
-            # Compute loss
-            loss = loss_fn(output, target)
-
-            # Accumulate loss
-            val_loss += loss.item()
-
-    # Print progress
-    print(f'Validation Epoch: {epoch+1}\tLoss: {val_loss/len(val_loader):.4f}')
+        }, is_best, args.out_dir, filename=f'checkpoint{epoch+1}.pth.tar')

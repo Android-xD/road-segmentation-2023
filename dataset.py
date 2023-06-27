@@ -27,7 +27,8 @@ class CustomImageDataset(Dataset):
 
         self.affineTransform = transforms.GeometricTransform()
         self.color_transform = T.Compose([
-            T.ColorJitter(0.1, 0.5, 0.1)
+            T.ColorJitter(0.1, 0.5, 0.1),
+            transforms.AddPerlinNoise()
         ]
         )
 
