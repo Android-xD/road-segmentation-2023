@@ -65,6 +65,16 @@ class GeometricTransform:
         self.scale = random.uniform(self.min_scale, self.max_scale)
         self.shear = random.random()*self.max_shear
 
+    def zero_params(self):
+        # state
+        self.angle = 0
+        self.translate = [0, 0]
+        self.scale = 1
+        self.shear = 0
+        self.hfilp = False
+        self.vfilp = False
+
+
 import matplotlib.pyplot as plt
 
 class AddPerlinNoise:

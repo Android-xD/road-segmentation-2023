@@ -20,10 +20,14 @@ def test_train_split(dataset, train_split=0.8):
     return Subset(dataset, train_indices), Subset(dataset, val_indices)
 
 class CustomImageDataset(Dataset):
-    def __init__(self, data_dir):
-
+    def __init__(self, data_dir, train=True):
+        """
+        train: specifies if there are labels or not
+        """
+        self.train = train
         self.img_list = glob.glob(os.path.join(data_dir, "images", "*"))
-        self.mask_list = glob.glob(os.path.join(data_dir, "groundtruth", "*"))
+        if self.train:
+            self.mask_list = glob.glob(os.path.join(data_dir, "groundtruth", "*"))
 
         self.affineTransform = transforms.GeometricTransform()
         self.color_transform = T.Compose([
@@ -37,22 +41,25 @@ class CustomImageDataset(Dataset):
 
     def __getitem__(self, idx):
         image = read_image(self.img_list[idx], ImageReadMode.RGB)
-        mask = read_image(self.mask_list[idx])
-        self.affineTransform.sample_params()
-        image = self.affineTransform(image)
-        mask = self.affineTransform(mask)
-        mask[mask > 0] = 1
-        # crop = T.CenterCrop(300)
-        # image = crop(image)
-        # mask = crop(mask)
+        if self.train:
+            mask = read_image(self.mask_list[idx])
+            self.affineTransform.sample_params()
+            image = self.affineTransform(image)
+            mask = self.affineTransform(mask)
+            mask[mask > 0] = 1
+            # crop = T.CenterCrop(300)
+            # image = crop(image)
+            # mask = crop(mask)
 
-        # image = self.affineTransform.backward(image)
-        # mask = self.affineTransform.backward(mask)
-        image = image.to(torch.uint8)
-        if self.color_transform:
-            image = self.color_transform(image)
-
-        return image, mask.to(torch.long)
+            # image = self.affineTransform.backward(image)
+            # mask = self.affineTransform.backward(mask)
+            mask = mask.to(torch.long)
+            image = image.to(torch.uint8)
+            if self.color_transform:
+                image = self.color_transform(image)
+        else:
+            mask = self.img_list[idx]
+        return image, mask
 
 if __name__ == "__main__":
     dataset = CustomImageDataset(r"./data/training")
