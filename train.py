@@ -10,6 +10,7 @@ from sklearn.metrics import f1_score, accuracy_score
 from deeplabv3 import createDeepLabv3, load_model
 import os
 from tensorboardX import SummaryWriter
+import torch.optim.lr_scheduler as lr_scheduler
 
 torch.manual_seed(0)
 
@@ -94,6 +95,7 @@ if __name__ == '__main__':
 
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
 
     def loss_fn(output,target):
         """ balanced binary cross entropy loss"""
@@ -107,7 +109,7 @@ if __name__ == '__main__':
         target = target.squeeze(1)
         return loss_fn(output, target)
 
-    train_epochs = 20  # 20 epochs should be enough, if your implementation is right
+    train_epochs = 25  # 20 epochs should be enough, if your implementation is right
     best_score = 0
     for epoch in range(train_epochs):
         # train for one epoch
@@ -140,6 +142,9 @@ if __name__ == '__main__':
             if (i+1) % args.frequent == 0:
                 print(f'Train Epoch: {epoch+1} [{i+1}/{len(train_loader)}]\t'
                       f'Loss: {train_loss / (i + 1):.4f}')
+        
+        scheduler.step()
+        # print(f"lr{optimizer.param_groups[0]['lr']}")
         train_accuracy/=i+1
         train_loss/=i+1
         # Validation
@@ -161,12 +166,20 @@ if __name__ == '__main__':
                 # Accumulate loss
                 val_loss += loss.item()
 
-                pred = output.round().detach().cpu().numpy()
-                true = target.detach().cpu().numpy()
-                #val_f1 += f1_score(true.ravel(), pred.ravel())
+                               
                 val_accuracy += torch.count_nonzero(target == (output[:, 1:2] > 0.5))/target.numel()
+                # multiclass -> read the tensor at index 1 for street, the threshold 0.5 should be tuned on the training set
+                pred = (output[:, 1:2] > 0.5)
+                TP = torch.count_nonzero(target[1 == pred])
+                recall = TP / (torch.count_nonzero(target)+1)
+                
+                precision = TP / (torch.count_nonzero(pred)+1)
+                # print(f"Recall: {recall} Precision: {precision}")
+                val_f1 += 2./(1/recall + 1/precision)
+
             val_accuracy/=i+1
-            val_loss/=i+1	
+            val_loss/=i+1
+            val_f1/=i+1	
 
         is_best = val_loss < best_score
         if is_best:
