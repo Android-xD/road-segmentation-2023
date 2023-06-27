@@ -22,7 +22,7 @@ def remove_dots(img, width):
     cv2.drawContours(filtered_image, filtered_contours, -1, 0, -1)
     return filtered_image
 
-def compute_rich_label(img, max_width=70):
+def compute_width_label(img, max_width=70):
     rich_label = np.zeros_like(img)
     for i in range(2, max_width, 1):
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (i, i))
@@ -56,17 +56,30 @@ def compute_rich_label(img, max_width=70):
     # img = img[max_width:-max_width, max_width:-max_width]
     return rich_label
 
+def compute_sdf_label(img):
+    # Perform the distance transform
+    dist_neg = cv2.distanceTransform(img, cv2.DIST_LABEL_PIXEL, 0)
+    dist_neg = np.clip(dist_neg, 0, 50)
+    dist = cv2.distanceTransform(255-img, cv2.DIST_LABEL_PIXEL, 0)
+    dist = np.clip(dist, 0, 50)
+    return dist+50-dist_neg
+
 if __name__ == '__main__':
     import os
     from tqdm import tqdm
     paths = glob.glob('data/training/groundtruth/*.png')
-    store_folder = r"./data/training/groundtruth_rich"
+    store_folder_width = r"./data/training/groundtruth_width"
+    store_folder_sdf = r"./data/training/groundtruth_sdf"
 
-
-    os.makedirs(store_folder, exist_ok=True)
+    os.makedirs(store_folder_width, exist_ok=True)
+    os.makedirs(store_folder_sdf, exist_ok=True)
     max_width = 70
+
     for p in tqdm(paths):
         img = cv2.imread(p, 0)
-        rich_label = compute_rich_label(img)
-        cv2.imwrite(f"{store_folder}/{os.path.basename(p)}", rich_label)
+        width_label = compute_width_label(img)
+        cv2.imwrite(f"{store_folder_width}/{os.path.basename(p)}", width_label)
+
+        sdf_label = compute_sdf_label(img)
+        cv2.imwrite(f"{store_folder_sdf}/{os.path.basename(p)}", sdf_label)
 
