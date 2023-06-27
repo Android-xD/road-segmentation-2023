@@ -14,7 +14,7 @@ class GeometricTransform:
 
     def __init__(self):
         # sample ranges
-        self.max_angle = 45
+        self.max_angle = 90
         self.max_trans_x = 100
         self.max_trans_y = 100
         self.min_scale = 0.95
