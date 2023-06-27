@@ -11,7 +11,7 @@ from deeplabv3 import createDeepLabv3, load_model
 import os
 from tensorboardX import SummaryWriter
 import torch.optim.lr_scheduler as lr_scheduler
-from utils import aggregate_tile
+from utils import aggregate_tile,f1,f1_loss
 import torch.nn.functional as F
 
 torch.manual_seed(0)
@@ -101,15 +101,8 @@ if __name__ == '__main__':
 
     def loss_fn(output,target):
         """ balanced binary cross entropy loss"""
-        # need to balance the segmentation
-        fg_ratio = torch.clamp(torch.count_nonzero(target) / target.numel(), 0.05, 0.95)
-        weight = torch.tensor([1/(1-fg_ratio), 1/fg_ratio])
-        weight /= torch.sum(weight)
-        # Compute loss
-        weight = weight.to(device)
-        loss_fn = torch.nn.BCELoss()#weight=weight)
         output = F.sigmoid(output)
-        return loss_fn(output.to(float), target.to(float))
+        return f1_loss(output.to(float), target.to(float))
 
     train_epochs = 25  # 20 epochs should be enough, if your implementation is right
     best_score = 100
