@@ -6,8 +6,8 @@ module load python_gpu/3.10.4 cuda/11.8.0 cudnn/8.8.1.3
 module load eth_proxy
 
 
-if [ -f /cluster/scratch/horatan/CIL/bin/activate ];
+if [ -f /cluster/scratch/$USER/CIL/bin/activate ];
 then
-    source /cluster/scratch/horatan/CIL/bin/activate;
+    source /cluster/scratch/$USER/CIL/bin/activate;
 fi
 
