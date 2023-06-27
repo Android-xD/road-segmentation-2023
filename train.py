@@ -110,7 +110,7 @@ if __name__ == '__main__':
         return loss_fn(output, target)
 
     train_epochs = 25  # 20 epochs should be enough, if your implementation is right
-    best_score = 0
+    best_score = 100
     for epoch in range(train_epochs):
         # train for one epoch
         model.train()
