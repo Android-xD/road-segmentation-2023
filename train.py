@@ -11,6 +11,8 @@ from deeplabv3 import createDeepLabv3, load_model
 import os
 from tensorboardX import SummaryWriter
 import torch.optim.lr_scheduler as lr_scheduler
+from utils import aggregate_tile
+import torch.nn.functional as F
 
 torch.manual_seed(0)
 
@@ -91,7 +93,7 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(2, 400)
+    model, preprocess = createDeepLabv3(1, 400)
 
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -105,9 +107,9 @@ if __name__ == '__main__':
         weight /= torch.sum(weight)
         # Compute loss
         weight = weight.to(device)
-        loss_fn = torch.nn.CrossEntropyLoss()#weight=weight)
-        target = target.squeeze(1)
-        return loss_fn(output, target)
+        loss_fn = torch.nn.BCELoss()#weight=weight)
+        output = F.sigmoid(output)
+        return loss_fn(output.to(float), target.to(float))
 
     train_epochs = 25  # 20 epochs should be enough, if your implementation is right
     best_score = 100
@@ -135,7 +137,7 @@ if __name__ == '__main__':
 
             # Accumulate loss
             train_loss += loss.item()
-            train_accuracy += torch.count_nonzero(target == (output[:, 1:2] > 0.5))/target.numel()
+            train_accuracy += torch.count_nonzero(target == (output > 0.5))/target.numel()
 
 
             # Print progress
@@ -167,9 +169,9 @@ if __name__ == '__main__':
                 val_loss += loss.item()
 
                                
-                val_accuracy += torch.count_nonzero(target == (output[:, 1:2] > 0.5))/target.numel()
+                val_accuracy += torch.count_nonzero(target == (output > 0.5))/target.numel()
                 # multiclass -> read the tensor at index 1 for street, the threshold 0.5 should be tuned on the training set
-                pred = (output[:, 1:2] > 0.5)
+                pred = (output > 0.5)
                 TP = torch.count_nonzero(target[1 == pred])
                 recall = TP / (torch.count_nonzero(target)+1)
                 
