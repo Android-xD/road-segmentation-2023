@@ -170,9 +170,9 @@ if __name__ == '__main__':
                 # multiclass -> read the tensor at index 1 for street, the threshold 0.5 should be tuned on the training set
                 pred = (output[:,:1] > 0.5)
                 TP = torch.count_nonzero(target[1 == pred])
-                recall = TP / (torch.count_nonzero(target)+1)
+                recall = TP / (torch.count_nonzero(target)+torch.finfo(torch.float32).eps)
                 
-                precision = TP / (torch.count_nonzero(pred)+1)
+                precision = TP / (torch.count_nonzero(pred)+torch.finfo(torch.float32).eps)
                 # print(f"Recall: {recall} Precision: {precision}")
                 val_f1 += 2./(1/recall + 1/precision)
 
