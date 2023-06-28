@@ -27,7 +27,9 @@ class CustomImageDataset(Dataset):
         self.train = train
         self.img_list = glob.glob(os.path.join(data_dir, "images", "*"))
         if self.train:
-            self.mask_list = glob.glob(os.path.join(data_dir, "groundtruth", "*"))
+            self.mask_list_gt = glob.glob(os.path.join(data_dir, "groundtruth", "*"))
+            self.mask_list_sdf = glob.glob(os.path.join(data_dir, "groundtruth_sdf", "*"))
+            self.mask_list_width = glob.glob(os.path.join(data_dir, "groundtruth_width", "*"))
 
         self.affineTransform = transforms.GeometricTransform()
         self.color_transform = T.Compose([
@@ -42,18 +44,25 @@ class CustomImageDataset(Dataset):
     def __getitem__(self, idx):
         image = read_image(self.img_list[idx], ImageReadMode.RGB)
         if self.train:
-            mask = read_image(self.mask_list[idx])
+            mask_gt = read_image(self.mask_list_gt[idx])
+            mask_sdf = read_image(self.mask_list_sdf[idx])
+            mask_width = read_image(self.mask_list_width[idx])
             self.affineTransform.sample_params()
             image = self.affineTransform(image)
-            mask = self.affineTransform(mask)
-            mask[mask > 0] = 1
+            mask_gt = self.affineTransform(mask_gt)
+            mask_sdf = self.affineTransform(mask_sdf)
+            mask_width = self.affineTransform(mask_width)
+            mask_gt[mask_gt > 0] = 1.
+            mask_sdf = mask_sdf/100.
+            mask_width = mask_width/70.*6 # To match the range of relu6
+
             # crop = T.CenterCrop(300)
             # image = crop(image)
             # mask = crop(mask)
 
             # image = self.affineTransform.backward(image)
             # mask = self.affineTransform.backward(mask)
-            mask = mask.to(torch.long)
+            mask = torch.stack([mask_gt, mask_sdf, mask_width],1)
             image = image.to(torch.uint8)
             if self.color_transform:
                 image = self.color_transform(image)
@@ -69,4 +78,5 @@ if __name__ == "__main__":
         print(img.shape)
         print(label.shape)
         import visualize as vis
-        vis.show_img_mask(img, label)
+        for j in range(3):
+            vis.show_img_mask(img, label[0,j])

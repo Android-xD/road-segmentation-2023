@@ -62,7 +62,7 @@ def compute_sdf_label(img):
     dist_neg = np.clip(dist_neg, 0, 50)
     dist = cv2.distanceTransform(255-img, cv2.DIST_LABEL_PIXEL, 0)
     dist = np.clip(dist, 0, 50)
-    return dist+50-dist_neg
+    return -dist+50+dist_neg
 
 if __name__ == '__main__':
     import os

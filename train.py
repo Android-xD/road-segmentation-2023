@@ -93,16 +93,20 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(1, 400)
+    model, preprocess = createDeepLabv3(3, 400)
 
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
 
-    def loss_fn(output,target):
+    def loss_fn(output, target):
         """ balanced binary cross entropy loss"""
-        output = F.sigmoid(output)
-        return f1_loss(output.to(float), target.to(float))
+        BCELoss = torch.nn.BCELoss()
+        MSELoss = torch.nn.MSELoss()
+        pred = F.sigmoid(output[:, :1])
+        sdf = F.sigmoid(output[:, :1:2])
+        width = F.relu6(output[:, :2:3])
+        return BCELoss(pred, target[:, :1]) + MSELoss(width, target[:, 1:2]) + MSELoss(sdf, target[:, 2:3])
 
     train_epochs = 25  # 20 epochs should be enough, if your implementation is right
     best_score = 100
@@ -130,7 +134,7 @@ if __name__ == '__main__':
 
             # Accumulate loss
             train_loss += loss.item()
-            train_accuracy += torch.count_nonzero(target == (output > 0.5))/target.numel()
+            train_accuracy += torch.count_nonzero(target == (output[:,:1] > 0.5))/target.numel()
 
 
             # Print progress
@@ -162,9 +166,9 @@ if __name__ == '__main__':
                 val_loss += loss.item()
 
                                
-                val_accuracy += torch.count_nonzero(target == (output > 0.5))/target.numel()
+                val_accuracy += torch.count_nonzero(target == (output[:,:1] > 0.5))/target.numel()
                 # multiclass -> read the tensor at index 1 for street, the threshold 0.5 should be tuned on the training set
-                pred = (output > 0.5)
+                pred = (output[:,:1] > 0.5)
                 TP = torch.count_nonzero(target[1 == pred])
                 recall = TP / (torch.count_nonzero(target)+1)
                 
