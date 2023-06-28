@@ -105,9 +105,10 @@ if __name__ == '__main__':
         pred = F.sigmoid(output[:, :1])
         sdf = F.sigmoid(output[:, 1:2])
         width = F.relu6(output[:, 2:3])
-        return BCELoss(pred, target[:, :1]) + 0.5* MSELoss(sdf, target[:, 1:2]) + 0.08*MSELoss(width, target[:, 2:3])
+        return BCELoss(pred, target[:, :1]) + 0.5* MSELoss(sdf, target[:, 1:2]) + 0.08*MSELoss(width*target[:,:1], target[:, 2:3])
 
-    train_epochs = 25  # 20 epochs should be enough, if your implementation is right
+
+    train_epochs = 40  # 20 epochs should be enough, if your implementation is right
     best_score = 100
     for epoch in range(train_epochs):
         # train for one epoch
