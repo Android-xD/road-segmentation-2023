@@ -102,7 +102,8 @@ if __name__ == '__main__':
     def loss_fn(output,target):
         """ balanced binary cross entropy loss"""
         output = F.sigmoid(output)
-        return f1_loss(output.to(float), target.to(float))
+        loss_fn = torch.nn.MSELoss()
+        return loss_fn(output.to(float), target.to(float))
 
     train_epochs = 25  # 20 epochs should be enough, if your implementation is right
     best_score = 100
