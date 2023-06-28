@@ -77,7 +77,7 @@ if __name__ == '__main__':
     dataset = CustomImageDataset(training_set)
 
     train_dataset, val_dataset = test_train_split(dataset, 0.8)
-
+    val_dataset.test=True
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=4,
@@ -108,7 +108,7 @@ if __name__ == '__main__':
         return BCELoss(pred, target[:, :1]) + 0.5* MSELoss(sdf, target[:, 1:2]) + 0.08*MSELoss(width*target[:,:1], target[:, 2:3])
 
 
-    train_epochs = 40  # 20 epochs should be enough, if your implementation is right
+    train_epochs = 80  # 20 epochs should be enough, if your implementation is right
     best_score = 100
     for epoch in range(train_epochs):
         # train for one epoch

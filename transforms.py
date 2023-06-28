@@ -17,8 +17,8 @@ class GeometricTransform:
         self.max_angle = 90
         self.max_trans_x = 100
         self.max_trans_y = 100
-        self.min_scale = 0.95
-        self.max_scale = 1.05
+        self.min_scale = 0.7
+        self.max_scale = 2
         self.max_shear = 0
 
         # state
@@ -30,7 +30,7 @@ class GeometricTransform:
         self.vfilp = False
         self.output_size = 400
 
-        self.pad = nn.ReflectionPad2d(200)
+        self.pad = nn.ReflectionPad2d(300)
 
     def __call__(self, x):
         if self.vfilp:

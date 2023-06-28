@@ -20,11 +20,12 @@ def test_train_split(dataset, train_split=0.8):
     return Subset(dataset, train_indices), Subset(dataset, val_indices)
 
 class CustomImageDataset(Dataset):
-    def __init__(self, data_dir, train=True):
+    def __init__(self, data_dir, train=True, test=False):
         """
         train: specifies if there are labels or not
         """
         self.train = train
+        self.test = test
         self.img_list = glob.glob(os.path.join(data_dir, "images", "*"))
         if self.train:
             self.mask_list_gt = glob.glob(os.path.join(data_dir, "groundtruth", "*"))
@@ -47,11 +48,15 @@ class CustomImageDataset(Dataset):
             mask_gt = read_image(self.mask_list_gt[idx])
             mask_sdf = read_image(self.mask_list_sdf[idx])
             mask_width = read_image(self.mask_list_width[idx])
-            self.affineTransform.sample_params()
+            
+            if not self.test:
+                self.affineTransform.sample_params()
             image = self.affineTransform(image)
             mask_gt = self.affineTransform(mask_gt)
             mask_sdf = self.affineTransform(mask_sdf)
             mask_width = self.affineTransform(mask_width)
+            mask_width *= self.affineTransform.scale
+            mask_sdf *= self.affineTransform.scale
             mask_gt[mask_gt > 0] = 1.
             mask_sdf = mask_sdf/100.
             mask_width = mask_width/70.*6 # To match the range of relu6
@@ -64,7 +69,7 @@ class CustomImageDataset(Dataset):
             # mask = self.affineTransform.backward(mask)
             mask = torch.cat([mask_gt, mask_sdf, mask_width],0)
             image = image.to(torch.uint8)
-            if self.color_transform:
+            if self.color_transform and not self.test:
                 image = self.color_transform(image)
         else:
             mask = self.img_list[idx]
