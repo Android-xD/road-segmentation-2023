@@ -62,7 +62,7 @@ class CustomImageDataset(Dataset):
 
             # image = self.affineTransform.backward(image)
             # mask = self.affineTransform.backward(mask)
-            mask = torch.stack([mask_gt, mask_sdf, mask_width],1)
+            mask = torch.cat([mask_gt, mask_sdf, mask_width],0)
             image = image.to(torch.uint8)
             if self.color_transform:
                 image = self.color_transform(image)

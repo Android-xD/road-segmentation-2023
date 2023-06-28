@@ -103,9 +103,9 @@ if __name__ == '__main__':
         BCELoss = torch.nn.BCELoss()
         MSELoss = torch.nn.MSELoss()
         pred = F.sigmoid(output[:, :1])
-        sdf = F.sigmoid(output[:, :1:2])
-        width = F.relu6(output[:, :2:3])
-        return BCELoss(pred, target[:, :1]) + MSELoss(width, target[:, 1:2]) + MSELoss(sdf, target[:, 2:3])
+        sdf = F.sigmoid(output[:, 1:2])
+        width = F.relu6(output[:, 2:3])
+        return BCELoss(pred, target[:, :1]) + 0.5* MSELoss(width, target[:, 1:2]) + 0.08*MSELoss(sdf, target[:, 2:3])
 
     train_epochs = 25  # 20 epochs should be enough, if your implementation is right
     best_score = 100
@@ -118,7 +118,7 @@ if __name__ == '__main__':
             # Move input and target tensors to the device (CPU or GPU)
             input = input.to(device)
             target = target.to(device)
-
+            
             # Clear the gradients
             optimizer.zero_grad()
 
@@ -130,10 +130,11 @@ if __name__ == '__main__':
             # Backward pass and update weights
             loss.backward()
             optimizer.step()
-
+            y_gt = target[:,:1]
+            y_pred = output[:,:1]
             # Accumulate loss
             train_loss += loss.item()
-            train_accuracy += torch.count_nonzero(target == (output[:,:1] > 0.5))/target.numel()
+            train_accuracy += torch.count_nonzero(y_gt == (y_pred > 0.5))/y_gt.numel()
 
 
             # Print progress
@@ -156,6 +157,7 @@ if __name__ == '__main__':
                 input = input.to(device)
                 target = target.to(device)
 
+                y_gt = target[:,:1]
                 # Forward pass
                 output = model(preprocess(input))['out']
                 # Compute loss
@@ -164,12 +166,14 @@ if __name__ == '__main__':
                 # Accumulate loss
                 val_loss += loss.item()
 
-                               
-                val_accuracy += torch.count_nonzero(target == (output[:,:1] > 0.5))/target.numel()
-                # multiclass -> read the tensor at index 1 for street, the threshold 0.5 should be tuned on the training set
-                pred = (output[:,:1] > 0.5)
-                TP = torch.count_nonzero(target[1 == pred])
-                recall = TP / (torch.count_nonzero(target)+torch.finfo(torch.float32).eps)
+                y_pred = output[:,:1]
+                pred = (y_pred > 0.5)               
+                val_accuracy += torch.count_nonzero(y_gt == pred)/y_gt.numel()
+                
+                
+                
+                TP = torch.count_nonzero(y_gt[1 == pred])
+                recall = TP / (torch.count_nonzero(y_gt)+torch.finfo(torch.float32).eps)
                 
                 precision = TP / (torch.count_nonzero(pred)+torch.finfo(torch.float32).eps)
                 # print(f"Recall: {recall} Precision: {precision}")
