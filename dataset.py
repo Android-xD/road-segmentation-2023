@@ -56,9 +56,13 @@ class CustomImageDataset(Dataset):
             mask_sdf = self.affineTransform(mask_sdf)
             mask_width = self.affineTransform(mask_width)
             mask_width *= self.affineTransform.scale
-            mask_sdf *= self.affineTransform.scale
+
             mask_gt[mask_gt > 0] = 1.
-            mask_sdf = mask_sdf/100.
+
+            mask_sdf *= self.affineTransform.scale
+            # range (0,255) -> (0, 64) -rescale-> (0,1)
+            mask_sdf = torch.clip(mask_sdf/64, 0, 1)
+
             mask_width = mask_width/70.*6 # To match the range of relu6
 
             # crop = T.CenterCrop(300)
@@ -84,4 +88,4 @@ if __name__ == "__main__":
         print(label.shape)
         import visualize as vis
         for j in range(3):
-            vis.show_img_mask(img, label[0,j])
+            vis.show_img_mask(img, label[j])

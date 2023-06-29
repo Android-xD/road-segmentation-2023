@@ -3,7 +3,7 @@ import glob
 from scipy.ndimage import label
 import numpy as np
 import matplotlib.pyplot as plt
-
+from skimage.morphology import skeletonize
 
 
 def remove_dots(img, width):
@@ -58,11 +58,12 @@ def compute_width_label(img, max_width=70):
 
 def compute_sdf_label(img):
     # Perform the distance transform
-    dist_neg = cv2.distanceTransform(img, cv2.DIST_LABEL_PIXEL, 0)
-    dist_neg = np.clip(dist_neg, 0, 50)
-    dist = cv2.distanceTransform(255-img, cv2.DIST_LABEL_PIXEL, 0)
-    dist = np.clip(dist, 0, 50)
-    return -dist+50+dist_neg
+    skeleton = skeletonize(img)
+    skeleton = (1-skeleton).astype(np.uint8)
+    dist = cv2.distanceTransform(skeleton, cv2.DIST_LABEL_PIXEL, 0)
+    score = np.clip(dist, 0, 255)
+    return score
+
 
 if __name__ == '__main__':
     import os
