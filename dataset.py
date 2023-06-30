@@ -9,6 +9,8 @@ from torchvision.io import read_image, ImageReadMode
 from torch.utils.data import Subset
 import transforms
 import glob
+from make_rich_labels import dir_from_sdf
+from visualize import plot_images
 
 
 
@@ -51,11 +53,16 @@ class CustomImageDataset(Dataset):
             
             if not self.test:
                 self.affineTransform.sample_params()
+            else:
+                self.affineTransform.zero_params()
             image = self.affineTransform(image)
             mask_gt = self.affineTransform(mask_gt)
             mask_sdf = self.affineTransform(mask_sdf)
             mask_width = self.affineTransform(mask_width)
             mask_width *= self.affineTransform.scale
+
+            # compute direction
+            mask_dir = dir_from_sdf(mask_sdf)
 
             mask_gt[mask_gt > 0] = 1.
 
@@ -63,7 +70,7 @@ class CustomImageDataset(Dataset):
             # range (0,255) -> (0, 64) -rescale-> (0,1)
             mask_sdf = torch.clip(mask_sdf/64, 0, 1)
 
-            mask_width = mask_width/70.*6 # To match the range of relu6
+            mask_width = mask_width/70 # be in [0,1]
 
             # crop = T.CenterCrop(300)
             # image = crop(image)
@@ -71,7 +78,7 @@ class CustomImageDataset(Dataset):
 
             # image = self.affineTransform.backward(image)
             # mask = self.affineTransform.backward(mask)
-            mask = torch.cat([mask_gt, mask_sdf, mask_width],0)
+            mask = torch.cat([mask_gt, mask_sdf, mask_width, mask_dir], 0).to(torch.float32)
             image = image.to(torch.uint8)
             if self.color_transform and not self.test:
                 image = self.color_transform(image)
@@ -80,12 +87,20 @@ class CustomImageDataset(Dataset):
         return image, mask
 
 if __name__ == "__main__":
-    dataset = CustomImageDataset(r"./data/training")
+    import visualize as vis
+    import numpy as np
+    store_figures = r"./figures"
+    os.makedirs(store_figures, exist_ok=True)
+
+    dataset = CustomImageDataset(r"./data/training",test=True)
     print(len(dataset))
+
     for i in range(10):
         img, label = dataset[i]
         print(img.shape)
         print(label.shape)
-        import visualize as vis
-        for j in range(3):
-            vis.show_img_mask(img, label[j])
+
+        img = np.transpose(img.squeeze(), (1, 2, 0))
+        img_list = [img] + [label[j] for j in range(label.shape[0])]
+        vis.plot_images(img_list)
+        plt.savefig(f"{store_figures}/{i}.jpg")

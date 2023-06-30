@@ -11,7 +11,7 @@ from deeplabv3 import createDeepLabv3, load_model
 import os
 from tensorboardX import SummaryWriter
 import torch.optim.lr_scheduler as lr_scheduler
-from utils import aggregate_tile,f1,f1_loss
+from utils import aggregate_tile,f1,f1_loss, CircularMSELoss
 import torch.nn.functional as F
 
 torch.manual_seed(0)
@@ -93,7 +93,7 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(3, 400)
+    model, preprocess = createDeepLabv3(4, 400)
 
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -105,7 +105,12 @@ if __name__ == '__main__':
         pred = F.sigmoid(output[:, :1])
         sdf = F.sigmoid(output[:, 1:2])
         width = F.relu6(output[:, 2:3])
-        return BCELoss(pred, target[:, :1]) + 0.5* MSELoss(sdf, target[:, 1:2]) + 0.08*MSELoss(width*target[:,:1], target[:, 2:3])
+        dir = output[:, 3:4] % 1
+
+        mask_with = target[:, :1]
+        mask_dir = target[:, 1:2]<1
+
+        return BCELoss(pred, target[:, :1]) + MSELoss(sdf, target[:, 1:2]) + MSELoss(width*mask_with, target[:, 2:3]) + CircularMSELoss(dir*mask_dir, target[:, 3:4])
 
 
     train_epochs = 80  # 20 epochs should be enough, if your implementation is right

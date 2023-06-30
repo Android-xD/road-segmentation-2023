@@ -41,3 +41,12 @@ def f1_loss(y_true, y_pred):
     f1 = 2 * p * r / (p + r + torch.finfo(torch.float32).eps)
     f1 = torch.where(torch.isnan(f1), torch.zeros_like(f1), f1)
     return 1 - torch.mean(f1)
+
+def CircularMSELoss(y_true, y_pred):
+    # Compute circular difference between predicted and target values
+    diff = torch.abs(y_pred - y_true)
+    circular_diff = torch.minimum(diff, 1 - diff)
+
+    # Compute mean squared error loss
+    loss = torch.mean(circular_diff**2)
+    return loss

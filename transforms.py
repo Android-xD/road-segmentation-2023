@@ -60,7 +60,7 @@ class GeometricTransform:
     def sample_params(self):
         self.hfilp = random.random() > 0.5
         self.vfilp = random.random() > 0.5
-        self.angle = random.uniform(-self.max_angle, self.max_angle) + random.choice([0, 90])
+        self.angle = random.uniform(-self.max_angle, self.max_angle)
         self.translate = [random.random() * self.max_trans_x, random.random() * self.max_trans_y]
         self.scale = random.uniform(self.min_scale, self.max_scale)
         self.shear = random.random()*self.max_shear

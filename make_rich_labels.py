@@ -4,6 +4,7 @@ from scipy.ndimage import label
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage.morphology import skeletonize
+import torch
 
 
 def remove_dots(img, width):
@@ -64,6 +65,24 @@ def compute_sdf_label(img):
     score = np.clip(dist, 0, 255)
     return score
 
+def compute_dir_label(img):
+    sdf = compute_sdf_label(img).astype(np.float64)
+    dx = cv2.Sobel(sdf, cv2.CV_64F, 1, 0, ksize=15)
+    dy = cv2.Sobel(sdf, cv2.CV_64F, 0, 1, ksize=15)
+    angle = np.arctan2(dy, dx) % np.pi
+    angle = (angle/np.pi*255).astype(np.uint8)
+    angle = cv2.medianBlur(angle, ksize=3)
+    return angle
+
+def dir_from_sdf(sdf):
+    "angle between 0 and 1 which corresponds to a half circle"
+    sdf = sdf.squeeze().numpy().astype(np.float64)/256
+    dx = cv2.Sobel(sdf, cv2.CV_64F, 1, 0, ksize=15)
+    dy = cv2.Sobel(sdf, cv2.CV_64F, 0, 1, ksize=15)
+    angle = np.arctan2(dy, dx) % np.pi
+    angle = (angle / np.pi * 256).astype(np.uint8)
+    angle = cv2.medianBlur(angle, ksize=3)
+    return torch.tensor(angle/256.).unsqueeze(0)
 
 if __name__ == '__main__':
     import os
@@ -71,9 +90,11 @@ if __name__ == '__main__':
     paths = glob.glob('data/training/groundtruth/*.png')
     store_folder_width = r"./data/training/groundtruth_width"
     store_folder_sdf = r"./data/training/groundtruth_sdf"
+    store_folder_dir = r"./data/training/groundtruth_dir"
 
     os.makedirs(store_folder_width, exist_ok=True)
     os.makedirs(store_folder_sdf, exist_ok=True)
+    os.makedirs(store_folder_dir, exist_ok=True)
     max_width = 70
 
     for p in tqdm(paths):
@@ -83,4 +104,7 @@ if __name__ == '__main__':
 
         sdf_label = compute_sdf_label(img)
         cv2.imwrite(f"{store_folder_sdf}/{os.path.basename(p)}", sdf_label)
+
+        dir_label = compute_dir_label(img)
+        cv2.imwrite(f"{store_folder_dir}/{os.path.basename(p)}", dir_label)
 
