@@ -12,6 +12,7 @@ from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
 from mask_to_submission import mask_to_submission_strings
 from utils import aggregate_tile
+from visualize import plot_images
 
 torch.manual_seed(0)
 
@@ -80,10 +81,9 @@ if __name__ == '__main__':
         sdf = F.sigmoid(sdf)
         width = F.relu6(width)
         for j in range(target.shape[0]):
-            for out in [pred, sdf, width]:
-                vis.output_target_heat(input.detach()[j] / 255, out.detach()[j], 0.3, target[j,:1])
-                plt.imshow(out[j, 0].detach().cpu().numpy())
-                plt.show()
+            img = np.transpose(input.detach()[j] / 255., (1, 2, 0))
+            plot_images([img, pred[j, 0].detach().numpy(), sdf[j, 0].detach().numpy(), width[j, 0].detach().numpy()])
+            plt.savefig(f"./figures/out_{i}_{j}.jpg")
 
     target = aggregate_tile(target.to(float))
 
