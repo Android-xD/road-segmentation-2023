@@ -11,8 +11,9 @@ from deeplabv3 import createDeepLabv3, load_model
 import os
 from tensorboardX import SummaryWriter
 import torch.optim.lr_scheduler as lr_scheduler
-from utils import aggregate_tile,f1,f1_loss, CircularMSELoss
+from utils import aggregate_tile,f1,f1_loss, CircularMSELoss, f1_score
 import torch.nn.functional as F
+from postprocessing import ClassifierCNN
 
 torch.manual_seed(0)
 
@@ -94,6 +95,7 @@ if __name__ == '__main__':
     )
 
     model, preprocess = createDeepLabv3(4, 400)
+    classifier = ClassifierCNN()
 
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -118,6 +120,7 @@ if __name__ == '__main__':
     for epoch in range(train_epochs):
         # train for one epoch
         model.train()
+        classifier.train()
         train_loss = 0.0
         train_accuracy = 0.0
         for i, (input, target) in enumerate(train_loader):
@@ -130,18 +133,27 @@ if __name__ == '__main__':
 
             # Forward pass
             output = model(preprocess(input))['out']
+            final = classifier(output)
 
             loss = loss_fn(output, target)
 
-            # Backward pass and update weights
-            loss.backward()
-            optimizer.step()
-            y_gt = target[:,:1]
-            y_pred = output[:,:1]
+
+            y_gt = target[:, :1]
+            y_pred = output[:, :1]
+
+
+            y_gt_tiled = aggregate_tile(y_gt)
+            BCELoss = torch.nn.BCELoss()
+            classifier_loss = BCELoss(final, y_gt_tiled)
+            final_loss = classifier_loss + loss
+
+            final_loss.backward()
+
             # Accumulate loss
             train_loss += loss.item()
             train_accuracy += torch.count_nonzero(y_gt == (y_pred > 0.5))/y_gt.numel()
 
+            optimizer.step()
 
             # Print progress
             if (i+1) % args.frequent == 0:
@@ -164,26 +176,23 @@ if __name__ == '__main__':
                 target = target.to(device)
 
                 y_gt = target[:,:1]
+                y_gt_tiled = aggregate_tile(y_gt)
                 # Forward pass
                 output = model(preprocess(input))['out']
+                final = classifier(output)
                 # Compute loss
-                loss = loss_fn(output, target)
+                classifier_loss = BCELoss(final, y_gt_tiled)
+                loss = loss_fn(output, target) + classifier_loss
 
                 # Accumulate loss
                 val_loss += loss.item()
 
-                y_pred = output[:,:1]
+                y_pred = final
                 pred = (y_pred > 0.5)               
                 val_accuracy += torch.count_nonzero(y_gt == pred)/y_gt.numel()
                 
-                
-                
-                TP = torch.count_nonzero(y_gt[1 == pred])
-                recall = TP / (torch.count_nonzero(y_gt)+torch.finfo(torch.float32).eps)
-                
-                precision = TP / (torch.count_nonzero(pred)+torch.finfo(torch.float32).eps)
-                # print(f"Recall: {recall} Precision: {precision}")
-                val_f1 += 2./(1/recall + 1/precision)
+
+                val_f1 += f1_score(aggregate_tile(y_gt), pred)
 
             val_accuracy/=i+1
             val_loss/=i+1

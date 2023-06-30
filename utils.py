@@ -12,7 +12,13 @@ def aggregate_tile(tensor):
 
     # Permute the dimensions to get the desired shape
     #output_tensor = output_tensor.permute(0, 1, 2, 4, 3, 5)
-    return torch.mean(output_tensor, dim=(3, 5)) > 0.25
+    return (torch.mean(output_tensor, dim=(3, 5)) > 0.25)*1.
+
+def f1_score(y_true, y_pred):
+    TP = torch.count_nonzero(y_true[1 == y_pred])
+    recall = TP / (torch.count_nonzero(y_true) + torch.finfo(torch.float32).eps)
+    precision = TP / (torch.count_nonzero(y_pred) + torch.finfo(torch.float32).eps)
+    return 2. / (1 / recall + 1 / precision)
 
 
 def f1(y_true, y_pred):
