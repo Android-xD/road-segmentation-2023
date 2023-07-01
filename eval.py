@@ -6,7 +6,6 @@ import numpy as np
 import torch
 import visualize as vis
 import torchvision.transforms as T
-import seg_net_lite
 from deeplabv3 import createDeepLabv3,load_model
 from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
@@ -80,9 +79,19 @@ if __name__ == '__main__':
         pred = F.sigmoid(pred)
         sdf = F.sigmoid(sdf)
         width = F.relu6(width)
+        dir = output[:,3:4] % 1
+        tile = F.sigmoid(output[:,4:5])
+        dir[tile < 0.5] = 0
+        width[tile < 0.5] = 0
+
         for j in range(target.shape[0]):
-            img = np.transpose(input.detach()[j] / 255., (1, 2, 0))
-            plot_images([img, pred[j, 0].detach().numpy(), sdf[j, 0].detach().numpy(), width[j, 0].detach().numpy()])
+            img = np.transpose(input.cpu().detach()[j] / 255., (1, 2, 0))
+            out = [pred, sdf, width, dir, tile]
+            out = [o[j, 0].cpu().detach().numpy() for o in out]
+            images = [img]+out
+            names = ["img", "probability", "signed distance","width", "direction", "patch prediction"]
+            plot_images(images,names)
+            #plt.show()
             plt.savefig(f"./figures/out_{i}_{j}.jpg")
 
     target = aggregate_tile(target.to(float))

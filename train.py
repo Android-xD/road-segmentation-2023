@@ -78,7 +78,7 @@ if __name__ == '__main__':
     dataset = CustomImageDataset(training_set)
 
     train_dataset, val_dataset = test_train_split(dataset, 0.8)
-    val_dataset.test=True
+    val_dataset.dataset.test=True
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=4,
@@ -178,7 +178,6 @@ if __name__ == '__main__':
                 target = target.to(device)
 
                 y_gt = target[:, :1]
-                y_gt_tiled = aggregate_tile(y_gt)
                 # Forward pass
                 output = model(preprocess(input))['out']
 
