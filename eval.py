@@ -62,7 +62,7 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(3, 400)
+    model, preprocess = createDeepLabv3(5, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
 
@@ -70,13 +70,13 @@ if __name__ == '__main__':
 
         # Move input and target tensors to the device (CPU or GPU)
         input = input.to(device)
-        input = input.squeeze()
+        #input = input.squeeze()
         target = target.to(device)
         output = model(preprocess(input))['out']
         # normalize the output
         pred = output[:, :1]
         sdf = output[:, 1:2]
-        width = output[:, 2:3]/6
+        width = output[:, 2:3]/70
         pred = F.sigmoid(pred)
         sdf = F.sigmoid(sdf)
         width = F.relu6(width)

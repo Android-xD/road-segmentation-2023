@@ -13,7 +13,7 @@ from tensorboardX import SummaryWriter
 import torch.optim.lr_scheduler as lr_scheduler
 from utils import aggregate_tile,f1,f1_loss, CircularMSELoss, f1_score
 import torch.nn.functional as F
-from postprocessing import ClassifierCNN
+from postprocessing import CycleCNN
 
 torch.manual_seed(0)
 
@@ -94,8 +94,8 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(4, 400)
-    classifier = ClassifierCNN()
+    model, preprocess = createDeepLabv3(5, 400)
+    post_model = CycleCNN()
 
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -108,11 +108,17 @@ if __name__ == '__main__':
         sdf = F.sigmoid(output[:, 1:2])
         width = F.relu6(output[:, 2:3])
         dir = output[:, 3:4] % 1
+        tiled = F.avg_pool2d(F.sigmoid(output[:, 4:5]), 16, 16, 0)
 
         mask_with = target[:, :1]
-        mask_dir = target[:, 1:2]<1
+        mask_dir = target[:, 1:2] < 1
 
-        return BCELoss(pred, target[:, :1]) + MSELoss(sdf, target[:, 1:2]) + MSELoss(width*mask_with, target[:, 2:3]) + CircularMSELoss(dir*mask_dir, target[:, 3:4])
+        return BCELoss(pred, target[:, :1]) \
+               + MSELoss(sdf, target[:, 1:2]) \
+               + MSELoss(width*mask_with, target[:, 2:3]) \
+               + CircularMSELoss(dir*mask_dir, target[:, 3:4]) \
+               + f1_loss(aggregate_tile(target[:, :1]), tiled)
+
 
 
     train_epochs = 80  # 20 epochs should be enough, if your implementation is right
@@ -120,7 +126,7 @@ if __name__ == '__main__':
     for epoch in range(train_epochs):
         # train for one epoch
         model.train()
-        classifier.train()
+        post_model.train()
         train_loss = 0.0
         train_accuracy = 0.0
         for i, (input, target) in enumerate(train_loader):
@@ -133,7 +139,9 @@ if __name__ == '__main__':
 
             # Forward pass
             output = model(preprocess(input))['out']
-            final = classifier(output)
+
+            # cycle_input = torch.cat([input, output], dim=1)
+            # final = post_model(cycle_input)
 
             loss = loss_fn(output, target)
 
@@ -141,13 +149,7 @@ if __name__ == '__main__':
             y_gt = target[:, :1]
             y_pred = output[:, :1]
 
-
-            y_gt_tiled = aggregate_tile(y_gt)
-            BCELoss = torch.nn.BCELoss()
-            classifier_loss = BCELoss(final, y_gt_tiled)
-            final_loss = classifier_loss + loss
-
-            final_loss.backward()
+            loss.backward()
 
             # Accumulate loss
             train_loss += loss.item()
@@ -175,15 +177,12 @@ if __name__ == '__main__':
                 input = input.to(device)
                 target = target.to(device)
 
-                y_gt = target[:,:1]
+                y_gt = target[:, :1]
                 y_gt_tiled = aggregate_tile(y_gt)
                 # Forward pass
                 output = model(preprocess(input))['out']
-                final = classifier(output)
-                # Compute loss
-                classifier_loss = BCELoss(final, y_gt_tiled)
+
                 loss = loss_fn(output, target)
-                final_loss = loss + classifier_loss
 
                 # Accumulate loss
                 val_loss += loss.item()
@@ -191,9 +190,9 @@ if __name__ == '__main__':
                 y_pred = output[:,:1]
                 pred = (y_pred > 0.5)               
                 val_accuracy += torch.count_nonzero(y_gt == pred)/y_gt.numel()
-                
+                tiled = F.avg_pool2d(F.sigmoid(output[:, 4:5]), 16, 16, 0)
 
-                val_f1 += f1_score(aggregate_tile(y_gt), final>0.5)
+                val_f1 += f1_score(aggregate_tile(y_gt), tiled > 0.5)
 
             val_accuracy/=i+1
             val_loss/=i+1

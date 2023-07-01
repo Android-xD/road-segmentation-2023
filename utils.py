@@ -1,7 +1,7 @@
 import torch
 
 
-def aggregate_tile(tensor):
+def aggregate_tile(tensor,thresh=0.25):
     """ takes a tensor of shape b, _, h, w and aggregates per 16x16 patch"""
     b, _, h, w = tensor.shape
     patch_h = h // 16
@@ -12,7 +12,7 @@ def aggregate_tile(tensor):
 
     # Permute the dimensions to get the desired shape
     #output_tensor = output_tensor.permute(0, 1, 2, 4, 3, 5)
-    return (torch.mean(output_tensor, dim=(3, 5)) > 0.25)*1.
+    return (torch.mean(output_tensor, dim=(3, 5)) > thresh)*1.
 
 def f1_score(y_true, y_pred):
     TP = torch.count_nonzero(y_true[1 == y_pred])
