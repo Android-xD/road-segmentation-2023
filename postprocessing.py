@@ -20,6 +20,8 @@ class ClassifierCNN(nn.Module):
 
         self.conv4 = nn.Conv2d(in_channels=64, out_channels=1, kernel_size=5, stride=1, padding=2)
         self.sigmoid4 = nn.Sigmoid()
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        self = self.to(device)
 
     def forward(self, x):
         x = self.pool1(self.relu1(self.conv1(x)))

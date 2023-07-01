@@ -182,17 +182,18 @@ if __name__ == '__main__':
                 final = classifier(output)
                 # Compute loss
                 classifier_loss = BCELoss(final, y_gt_tiled)
-                loss = loss_fn(output, target) + classifier_loss
+                loss = loss_fn(output, target)
+                final_loss = loss + classifier_loss
 
                 # Accumulate loss
                 val_loss += loss.item()
 
-                y_pred = final
+                y_pred = output[:,:1]
                 pred = (y_pred > 0.5)               
                 val_accuracy += torch.count_nonzero(y_gt == pred)/y_gt.numel()
                 
 
-                val_f1 += f1_score(aggregate_tile(y_gt), pred)
+                val_f1 += f1_score(aggregate_tile(y_gt), final>0.5)
 
             val_accuracy/=i+1
             val_loss/=i+1
