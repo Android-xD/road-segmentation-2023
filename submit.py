@@ -46,7 +46,7 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(1, 400)
+    model, preprocess = createDeepLabv3(5, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     store_folder = "out/prediction"
@@ -57,8 +57,8 @@ if __name__ == '__main__':
         input = input.squeeze()
         output = model(preprocess(input))['out']
         # normalize the output
-        output = F.sigmoid(output)
-        pred = (255*(output > 0.2)).detach().cpu().numpy().astype(np.uint8)
+        output = F.sigmoid(output[:,:4:5])
+        pred = (255*(output > 0.5)).detach().cpu().numpy().astype(np.uint8)
         for j in range(input.shape[0]):
             # vis.output_target_heat(input.detach()[j] / 255, output.detach()[j, 1], 0.3, None)
             # plt.imshow(output[j, 1].detach().cpu().numpy())
