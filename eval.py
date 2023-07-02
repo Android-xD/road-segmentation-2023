@@ -10,7 +10,7 @@ from deeplabv3 import createDeepLabv3,load_model
 from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
 from mask_to_submission import mask_to_submission_strings
-from utils import aggregate_tile
+from utils import aggregate_tile, f1_score
 from visualize import plot_images
 
 torch.manual_seed(0)
@@ -75,24 +75,40 @@ if __name__ == '__main__':
         # normalize the output
         pred = output[:, :1]
         sdf = output[:, 1:2]
-        width = output[:, 2:3]/70
+        width = output[:, 2:3]
         pred = F.sigmoid(pred)
         sdf = F.sigmoid(sdf)
         width = F.relu6(width)
         dir = output[:,3:4] % 1
         tile = F.sigmoid(output[:,4:5])
-        dir[tile < 0.5] = 0
-        width[tile < 0.5] = 0
+        #dir[tile < 0.5] = 0
+        #width[tile < 0.5] = 0
+
+        tiled = tile > 0.5
+        gt = target[:,2:3]
+        print(f1_score(gt, tiled))
+        for j in range(4):
+            w = (width[j,0].cpu().detach().numpy() * 70).astype(np.uint8)
+            w = cv2.medianBlur(w, ksize=15)/70.
+            plt.scatter(gt[j].cpu().detach().numpy().ravel(), w.ravel(), alpha=0.1)
+        plt.show()
 
         for j in range(target.shape[0]):
             img = np.transpose(input.cpu().detach()[j] / 255., (1, 2, 0))
-            out = [pred, sdf, width, dir, tile]
+
+            out = [pred, sdf, width, dir, tile, tiled, gt]
             out = [o[j, 0].cpu().detach().numpy() for o in out]
+            #for x in [0, 1, 2, 3, 4, 5]:
+            #    w = (out[x] * 255).astype(np.uint8)
+            #    out[x] = cv2.medianBlur(w, ksize=15)/255.
+            out[5] = out[1] < out[2]*0.5
+
+            vis.direction_field(out[3],out[0],8)
             images = [img]+out
-            names = ["img", "probability", "signed distance","width", "direction", "patch prediction"]
-            plot_images(images,names)
-            #plt.show()
-            plt.savefig(f"./figures/out_{i}_{j}.jpg")
+            names = ["img", "probability", "signed distance","width", "direction", "patch prediction", "final prediction", "gt prediction"]
+            plot_images(images, names)
+            plt.show()
+            #plt.savefig(f"./figures/out_{i}_{j}.jpg")
 
     target = aggregate_tile(target.to(float))
 

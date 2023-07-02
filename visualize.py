@@ -49,6 +49,27 @@ def output_target_heat(input, output, alpha,target = None):
     plt.imshow(img)
     plt.show()
 
+def direction_field(angle, background, stride=16):
+    """angle in range (0,1) """
+    plt.figure(figsize=(8, 8))
+    plt.imshow(background)
+    # Generate X and Y coordinates for the quiver plot
+    X, Y = np.meshgrid(np.arange(stride//2, 400, stride), np.arange(stride//2, 400, stride))
+
+    angle = -angle[stride//2::stride, stride//2::stride] * np.pi
+    # Calculate U and V components from the vector field data
+    V = 10 * np.cos(angle)  # x-component of vectors
+    U = 10 * np.sin(angle)  # y-component of vectors
+
+    plt.quiver(X, Y, U, V, angles='xy', scale_units='xy', scale=1, cmap='viridis')
+
+    # Set plot title and labels
+    plt.title("Road Direction Plot")
+
+    # Show the plot
+    plt.show()
+
+
 def plot_images(imgs, titles=None, cmaps='gray', dpi=100, pad=.5,
                 adaptive=True):
     """Plot a set of images horizontally.
