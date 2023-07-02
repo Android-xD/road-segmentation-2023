@@ -95,6 +95,8 @@ if __name__ == '__main__':
     )
 
     model, preprocess = createDeepLabv3(5, 400)
+    state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
+    model.load_state_dict(state_dict)
     post_model = CycleCNN()
 
     args = parse_args()
@@ -140,7 +142,7 @@ if __name__ == '__main__':
             # Forward pass
             output = model(preprocess(input))['out']
 
-            n_cycles = 3
+            n_cycles = 1
             gamma = 0.8
             cycle_loss = 0
             for r in range(n_cycles):
