@@ -140,10 +140,17 @@ if __name__ == '__main__':
             # Forward pass
             output = model(preprocess(input))['out']
 
-            # cycle_input = torch.cat([input, output], dim=1)
-            # final = post_model(cycle_input)
+            n_cycles = 3
+            gamma = 0.8
+            cycle_loss = 0
+            for r in range(n_cycles):
+                cycle_input = torch.cat([input, output.detach()], dim=1)
+                output = post_model(cycle_input)
 
-            loss = loss_fn(output, target)
+                r_weight = gamma ** (n_cycles - r - 1)
+                cycle_loss += r_weight * loss_fn(output, target) / n_cycles
+
+            loss = loss_fn(output, target) + cycle_loss
 
 
             y_gt = target[:, :1]
@@ -181,7 +188,16 @@ if __name__ == '__main__':
                 # Forward pass
                 output = model(preprocess(input))['out']
 
-                loss = loss_fn(output, target)
+                gamma = 0.8
+                cycle_loss = 0
+                for r in range(n_cycles):
+                    cycle_input = torch.cat([input, output.detach()], dim=1)
+                    output = post_model(cycle_input)
+
+                    r_weight = gamma ** (n_cycles - r - 1)
+                    cycle_loss += r_weight * loss_fn(output, target) / n_cycles
+
+                loss = loss_fn(output, target) + cycle_loss
 
                 # Accumulate loss
                 val_loss += loss.item()

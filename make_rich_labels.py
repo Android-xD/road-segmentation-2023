@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from skimage.morphology import skeletonize
 import torch
+from visualize import direction_field
 
 
 def remove_dots(img, width):
@@ -108,3 +109,4 @@ if __name__ == '__main__':
         dir_label = compute_dir_label(img)
         cv2.imwrite(f"{store_folder_dir}/{os.path.basename(p)}", dir_label)
 
+        # direction_field(dir_label / 256., width_label, 8)
