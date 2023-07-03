@@ -107,8 +107,8 @@ if __name__ == '__main__':
             images = [img]+out
             names = ["img", "probability", "signed distance","width", "direction", "patch prediction", "final prediction", "gt prediction"]
             plot_images(images, names)
-            plt.show()
-            #plt.savefig(f"./figures/out_{i}_{j}.jpg")
+            #plt.show()
+            plt.savefig(f"./figures/out_{i}_{j}.jpg")
 
     target = aggregate_tile(target.to(float))
 

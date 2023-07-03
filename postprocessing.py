@@ -11,6 +11,7 @@ class CycleCNN(nn.Module):
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.unet = self.unet.to(device)
 
+
     def forward(self, x):
-        return self.unet(x)
+        return x[:,3:] + self.unet(x)
 

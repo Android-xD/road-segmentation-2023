@@ -7,27 +7,28 @@ class UNet(nn.Module):
         super(UNet, self).__init__()
 
         # Downsample layers
-        self.down1 = self.downsampling(in_channels, 8)
-        self.down2 = self.downsampling(8, 16)
-        self.down3 = self.downsampling(16, 32)
-        self.down4 = self.downsampling(32, 64)
+        self.down1 = self.downsampling(in_channels, 64)
+        self.down2 = self.downsampling(64, 128)
+        self.down3 = self.downsampling(128, 256)
+        self.down4 = self.downsampling(256, 512)
 
         # Upsample layers
-        self.up1 = self.upsampling(64, 32)
-        self.up2 = self.upsampling(32, 16)
-        self.up3 = self.upsampling(16, 8)
-        self.up4 = self.upsampling(8, 8)
+        self.up1 = self.upsampling(512, 256)
+        self.up2 = self.upsampling(256, 128)
+        self.up3 = self.upsampling(128, 64)
+        self.up4 = self.upsampling(64, 64)
 
         # Residual connections
-        self.residual1 = self.residual_block(16, 32)
-        self.residual2 = self.residual_block(8, 16)
-        self.residual3 = self.residual_block(4, 8)
-        self.residual4 = self.residual_block(4, out_channels)
+        self.residual1 = self.residual_block(128, 256)
+        self.residual2 = self.residual_block(64, 128)
+        self.residual3 = self.residual_block(32, 64)
+        self.residual4 = self.residual_block(32, out_channels)
 
         # Skip connections
-        self.skip1 = self.skip_connection(32, 16)
-        self.skip2 = self.skip_connection(16, 8)
-        self.skip3 = self.skip_connection(8, 4)
+        self.skip1 = self.skip_connection(256, 128)
+        self.skip2 = self.skip_connection(128, 64)
+        self.skip3 = self.skip_connection(64, 32)
+
 
     def downsampling(self, in_channels, out_channels):
         return nn.Sequential(

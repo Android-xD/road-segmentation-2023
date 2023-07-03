@@ -48,7 +48,7 @@ def parse_args():
     return args
 
 def save_checkpoint(states, is_best, output_dir,
-                    filename='checkpoint.pth.tar'):
+                    filename='checkpoint.pth.tar', best_model_name='model_best'):
     """Save model checkpoint
 
     Args:
@@ -61,7 +61,7 @@ def save_checkpoint(states, is_best, output_dir,
     #torch.save(states, os.path.join(output_dir, filename))
     if is_best and 'state_dict' in states:
         torch.save(states['state_dict'],
-                   os.path.join(output_dir, 'model_best.pth.tar'))
+                   os.path.join(output_dir, f'{best_model_name}.pth.tar'))
 
 if __name__ == '__main__':
     dataset_path = r"./data/test_set_images"
@@ -95,12 +95,12 @@ if __name__ == '__main__':
     )
 
     model, preprocess = createDeepLabv3(5, 400)
-    state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
-    model.load_state_dict(state_dict)
+    # state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
+    # model.load_state_dict(state_dict)
     post_model = CycleCNN()
 
     args = parse_args()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(list(model.parameters()) + list(post_model.parameters()), lr=1e-4)
     scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
 
     def loss_fn(output, target):
@@ -142,21 +142,22 @@ if __name__ == '__main__':
             # Forward pass
             output = model(preprocess(input))['out']
 
-            n_cycles = 1
+            n_cycles = 1 + epoch//15
             gamma = 0.8
             cycle_loss = 0
+            output_cycle = output.clone().detach().requires_grad_(True)
             for r in range(n_cycles):
-                cycle_input = torch.cat([input, output.detach()], dim=1)
-                output = post_model(cycle_input)
-
+                cycle_input = torch.cat([input, output_cycle.detach().requires_grad_(True)], dim=1)
+                output_cycle = post_model(cycle_input)
+                
                 r_weight = gamma ** (n_cycles - r - 1)
-                cycle_loss += r_weight * loss_fn(output, target) / n_cycles
+                cycle_loss += r_weight * loss_fn(output_cycle, target) / n_cycles
 
-            loss = loss_fn(output, target) + cycle_loss
+            loss = cycle_loss + loss_fn(output, target)
 
 
             y_gt = target[:, :1]
-            y_pred = output[:, :1]
+            y_pred = output_cycle[:, :1]
 
             loss.backward()
 
@@ -192,19 +193,20 @@ if __name__ == '__main__':
 
                 gamma = 0.8
                 cycle_loss = 0
+                output_cycle = output.clone().detach().requires_grad_(True)
                 for r in range(n_cycles):
-                    cycle_input = torch.cat([input, output.detach()], dim=1)
-                    output = post_model(cycle_input)
+                    cycle_input = torch.cat([input, output_cycle.detach().requires_grad_(True)], dim=1)
+                    output_cycle = post_model(cycle_input)
 
                     r_weight = gamma ** (n_cycles - r - 1)
-                    cycle_loss += r_weight * loss_fn(output, target) / n_cycles
+                    cycle_loss += r_weight * loss_fn(output_cycle, target) / n_cycles
 
-                loss = loss_fn(output, target) + cycle_loss
+                loss = cycle_loss + loss_fn(output, target)
 
                 # Accumulate loss
                 val_loss += loss.item()
 
-                y_pred = output[:,:1]
+                y_pred = output_cycle[:,:1]
                 pred = (y_pred > 0.5)               
                 val_accuracy += torch.count_nonzero(y_gt == pred)/y_gt.numel()
                 tiled = F.avg_pool2d(F.sigmoid(output[:, 4:5]), 16, 16, 0)
@@ -231,3 +233,11 @@ if __name__ == '__main__':
             'last_epoch': epoch,
             'optimizer': optimizer.state_dict(),
         }, is_best, args.out_dir, filename=f'checkpoint{epoch+1}.pth.tar')
+
+        save_checkpoint({
+            'epoch': epoch + 1,
+            'state_dict': post_model.state_dict(),
+            'perf': val_loss,
+            'last_epoch': epoch,
+            'optimizer': optimizer.state_dict(),
+        }, is_best, args.out_dir, filename=f'checkpoint{epoch+1}.pth.tar',best_model_name='best_post_model')
