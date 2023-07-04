@@ -8,6 +8,8 @@ import visualize as vis
 import torchvision.transforms as T
 from sklearn.metrics import f1_score, accuracy_score
 from deeplabv3 import createDeepLabv3, load_model
+from fcn import createFCN
+import unet
 import os
 from tensorboardX import SummaryWriter
 import torch.optim.lr_scheduler as lr_scheduler
@@ -91,8 +93,9 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(2, 400)
-
+    #model, preprocess = createDeepLabv3(2, 400)
+    #model, preprocess = createFCN(2, 400)
+    model = unet.get_Unet()
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
@@ -109,7 +112,7 @@ if __name__ == '__main__':
         target = target.squeeze(1)
         return loss_fn(output, target)
 
-    train_epochs = 25  # 20 epochs should be enough, if your implementation is right
+    train_epochs = 20  # 20 epochs should be enough, if your implementation is right
     best_score = 0
     for epoch in range(train_epochs):
         # train for one epoch
@@ -118,6 +121,8 @@ if __name__ == '__main__':
         train_accuracy = 0.0
         for i, (input, target) in enumerate(train_loader):
             # Move input and target tensors to the device (CPU or GPU)
+            print(type(input))
+            input = input.type(torch.FloatTensor)
             input = input.to(device)
             target = target.to(device)
 
@@ -125,8 +130,9 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
             # Forward pass
-            output = model(preprocess(input))['out']
-
+            #output = model(preprocess(input))['out']
+            output = model(input)#['out']
+            #output = model(input)
             loss = loss_fn(output, target)
 
             # Backward pass and update weights
@@ -159,7 +165,9 @@ if __name__ == '__main__':
                 target = target.to(device)
 
                 # Forward pass
-                output = model(preprocess(input))['out']
+                #output = model(input)
+                #output = model(preprocess(input))['out']
+                output = model(input.type(torch.FloatTensor).to(device))#['out']
                 # Compute loss
                 loss = loss_fn(output, target)
 
