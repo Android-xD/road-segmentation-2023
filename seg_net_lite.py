@@ -20,7 +20,7 @@ class SegNetLite(nn.Module):
         self.num_down_layers = len(kernel_sizes)
         self.num_up_layers = len(kernel_sizes)
 
-        input_size = 8 # initial number of input channels
+        input_size = 3 # initial number of input channels
         # Construct downsampling layers.
         # As mentioned in the assignment, blocks of the downsampling path should have the
         # following output dimension (igoring batch dimension):

@@ -15,6 +15,7 @@ from utils import aggregate_tile,f1,f1_loss, CircularMSELoss, f1_score
 import torch.nn.functional as F
 from postprocessing import CycleCNN
 from unet import UNet
+from seg_net_lite import SegNetLite
 
 torch.manual_seed(0)
 
@@ -95,7 +96,7 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model = UNet(3,5) #createDeepLabv3(5, 400)
+    model = SegNetLite() #createDeepLabv3(5, 400)
     model.to(device)
     # state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     # model.load_state_dict(state_dict)
@@ -144,7 +145,7 @@ if __name__ == '__main__':
             # Forward pass
             output = model(input/256.)
 
-            n_cycles = 1 + epoch//15
+            n_cycles = 0
             gamma = 0.8
             cycle_loss = 0
             output_cycle = output.clone().detach().requires_grad_(True)
