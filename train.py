@@ -14,6 +14,7 @@ import torch.optim.lr_scheduler as lr_scheduler
 from utils import aggregate_tile,f1,f1_loss, CircularMSELoss, f1_score
 import torch.nn.functional as F
 from postprocessing import CycleCNN
+from unet import UNet
 
 torch.manual_seed(0)
 
@@ -94,7 +95,8 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(5, 400)
+    model = UNet(3,5) #createDeepLabv3(5, 400)
+    model.to(device)
     # state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     # model.load_state_dict(state_dict)
     post_model = CycleCNN()
@@ -140,7 +142,7 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
             # Forward pass
-            output = model(preprocess(input))['out']
+            output = model(input/256.)
 
             n_cycles = 1 + epoch//15
             gamma = 0.8
@@ -157,7 +159,7 @@ if __name__ == '__main__':
 
 
             y_gt = target[:, :1]
-            y_pred = output_cycle[:, :1]
+            y_pred = output_cycle[:, 4:5]
 
             loss.backward()
 
@@ -189,7 +191,7 @@ if __name__ == '__main__':
 
                 y_gt = target[:, :1]
                 # Forward pass
-                output = model(preprocess(input))['out']
+                output = model(input/256.)
 
                 gamma = 0.8
                 cycle_loss = 0
@@ -209,7 +211,7 @@ if __name__ == '__main__':
                 y_pred = output_cycle[:,:1]
                 pred = (y_pred > 0.5)               
                 val_accuracy += torch.count_nonzero(y_gt == pred)/y_gt.numel()
-                tiled = F.avg_pool2d(F.sigmoid(output[:, 4:5]), 16, 16, 0)
+                tiled = F.avg_pool2d(F.sigmoid(output_cycle[:, 4:5]), 16, 16, 0)
 
                 val_f1 += f1_score(aggregate_tile(y_gt), tiled > 0.5)
 
