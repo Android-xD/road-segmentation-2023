@@ -15,7 +15,8 @@ class Block(nn.Module):
 
     def forward(self, x):
         return self.block(x)
-class Unet(nn.Module):
+
+class Unet2(nn.Module):
     def __init__(self,chs=(3,64,128,256,512,1024) ):
         super().__init__()
         self.enc_block1= Block(3,64)
@@ -23,20 +24,21 @@ class Unet(nn.Module):
         self.enc_block3= Block(128,256)
         self.enc_block4= Block(256,512)
         self.enc_block5= Block(512,1024)
-        self.enc_block6= Block(1024,2048)
 
         self.pool = nn.MaxPool2d(2)
-        self.upconv6 = nn.ConvTranspose2d(2048, 1024, 2, 2)
+        self.mid_block3= Block(128,128)
+        self.mid_block2 = Block(256,256)
+        self.mid_block1 = Block(512,512)
+
         self.upconv1 = nn.ConvTranspose2d(1024, 512, 2, 2)
         self.upconv2 = nn.ConvTranspose2d(512, 256, 2, 2)
         self.upconv3 = nn.ConvTranspose2d(256, 128, 2, 2)
         self.upconv4 = nn.ConvTranspose2d(128, 64, 2, 2)
-        self.dec_block6 = Block(2048, 1024)
         self.dec_block1= Block(1024, 512)
         self.dec_block2= Block(512, 256)
         self.dec_block3= Block(256, 128)
         self.dec_block4= Block(128, 64)
-        self.head = nn.Sequential(nn.Conv2d(64, 2, 1), nn.Sigmoid()) 
+        self.head = nn.Sequential(nn.Conv2d(64, 2, 1), nn.Sigmoid())
 
     def forward(self,x):
         #enc_features = []
@@ -44,31 +46,43 @@ class Unet(nn.Module):
         x = self.pool(enc1)
         enc2 = self.enc_block2(x)
         x = self.pool(enc2)
-        enc3 = self.enc_block3(x)
+        enc3 = self.enc_block3(x) 
         x = self.pool(enc3)
         enc4 = self.enc_block4(x)
         x = self.pool(enc4)
         enc5 = self.enc_block5(x)
-       
 
-      
+
+
         x = self.upconv1(enc5)
         x = torch.cat([x, enc4], dim=1)
         x = self.dec_block1(x)
+
+        x1 = self.upconv2(enc4)
+        x1 = torch.cat([x1, enc3], dim=1)
+        #x1 = self.mid_block1(x1)
         x = self.upconv2(x)
-        x = torch.cat([x, enc3], dim=1)
+        x = torch.cat([x, enc3], dim=1) + x1
         x = self.dec_block2(x)
+        x1 =self.dec_block2(x1)
+
+        x21 = self.upconv3(enc3)
+        x21 = torch.cat([x21, enc2], dim=1)
+        #x21 = self.mid_block2(x21)
+        x22 = self.upconv3(x1)
+        x22 = torch.cat([x22, enc2], dim=1) + x21
+        #x22 = self.mid_block2(x22)
         x = self.upconv3(x)
-        x = torch.cat([x, enc2], dim=1)
+        x = torch.cat([x, enc2], dim=1) +x22 +x21
         x = self.dec_block3(x)
+        x21 = self.dec_block3(x21)
+        x22 = self.dec_block3(x22)
+
+
         x = self.upconv4(x)
         x = torch.cat([x, enc1], dim=1)
         x = self.dec_block4(x)
-        return self.head(x)
-    
-def pre(x):
-    return x.type('torch.FloatTensor')
-    
+        return self.head(x) 
 def get_Unet(outputchannels=1, input_size=512):
     """DeepLabv3 class with custom head.
 
@@ -81,7 +95,7 @@ def get_Unet(outputchannels=1, input_size=512):
     """
     #weights = DeepLabV3_ResNet50_Weights.DEFAULT
     #model = models.segmentation.deeplabv3_resnet50(weights=weights, progress=True)
-    model = Unet(chs=(3,64,128,256,512,1024))
+    model = Unet2(chs=(3,64,128,256,512,1024))
     
     #model.classifier = DeepLabHead(2048, outputchannels)
     # Set the model in training mode
@@ -126,7 +140,7 @@ if __name__ == "__main__":
     label = crop(label)
     image = crop(image)
     print(image.shape)
-    model= Unet()
+    model= Unet2()
     model.train()
     model.to(device)
     image = image.to(device)

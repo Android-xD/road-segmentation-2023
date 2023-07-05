@@ -6,12 +6,12 @@ import numpy as np
 import torch
 import visualize as vis
 import torchvision.transforms as T
-import seg_net_lite
+#import seg_net_lite
 from deeplabv3 import createDeepLabv3,load_model
 from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
 from mask_to_submission import main
-
+import unet2
 torch.manual_seed(0)
 
 def aggregate_tile(tensor):
@@ -47,15 +47,18 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(2, 400)
-    state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
+    #model, preprocess = createDeepLabv3(2, 400)
+    model = unet2.get_Unet()
+    state_dict = torch.load("out/model_best.pth_100unet2.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
 
     for i, (input, image_filenames) in enumerate(val_loader):
         # Move input and target tensors to the device (CPU or GPU)
+        input = input.type(torch.FloatTensor)
         input = input.to(device)
         input = input.squeeze()
-        output = model(preprocess(input))['out']
+       # output = model(preprocess(input))['out']
+        output = model(input)
         # normalize the output
         output = F.softmax(output)
         pred = (255*(output[:, 1:2] > 0.2)).detach().cpu().numpy().astype(np.uint8)
@@ -65,7 +68,7 @@ if __name__ == '__main__':
             # plt.show()
             img_name = os.path.basename(image_filenames[j])
             print(img_name)
-            cv2.imwrite(f"out/prediction/mask_{img_name}", pred[j, 0])
+            cv2.imwrite(f"out\prediction\mask_{img_name}", pred[j, 0])
 
     # now all masks are stored, convert it to the csv file
-    main(None)
+    #main(None)

@@ -79,15 +79,15 @@ if __name__ == "__main__":
 
     label = crop(label)
     image = crop(image)
-    print(image.shape)
-    model, preprocess = createDeepLabv3(1, size)
+    print(type(image))
+    model, preprocess = createDeepLabv3(2, size)
     model.eval()
     image = image.to(device)
-    batch = preprocess(image)
-    print(batch.shape)
+    batch = image
+    print(type(batch))
     output = model(batch)["out"].detach()
 
     print(output.shape)
     prediction = output.squeeze(0).squeeze(0)  # shape [1,1,h,w ] -> [h,w]
-    plt.imshow(prediction)
-    plt.show()
+    #plt.imshow(prediction.cpu())
+    #plt.show()

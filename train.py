@@ -10,6 +10,7 @@ from sklearn.metrics import f1_score, accuracy_score
 from deeplabv3 import createDeepLabv3, load_model
 from fcn import createFCN
 import unet
+import unet2
 import os
 from tensorboardX import SummaryWriter
 import torch.optim.lr_scheduler as lr_scheduler
@@ -112,8 +113,8 @@ if __name__ == '__main__':
         target = target.squeeze(1)
         return loss_fn(output, target)
 
-    train_epochs = 20  # 20 epochs should be enough, if your implementation is right
-    best_score = 0
+    train_epochs = 150  # 20 epochs should be enough, if your implementation is right
+    best_score = 100
     for epoch in range(train_epochs):
         # train for one epoch
         model.train()
