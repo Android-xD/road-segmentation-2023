@@ -13,9 +13,6 @@ from tensorboardX import SummaryWriter
 import torch.optim.lr_scheduler as lr_scheduler
 from utils import aggregate_tile,f1,f1_loss, CircularMSELoss, f1_score
 import torch.nn.functional as F
-from postprocessing import CycleCNN
-from unet import UNet
-from seg_net_lite import SegNetLite
 
 torch.manual_seed(0)
 
@@ -96,14 +93,13 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model = SegNetLite() #createDeepLabv3(5, 400)
+    model, preprocess = createDeepLabv3(5, 400)
     model.to(device)
     # state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     # model.load_state_dict(state_dict)
-    post_model = CycleCNN()
 
     args = parse_args()
-    optimizer = torch.optim.Adam(list(model.parameters()) + list(post_model.parameters()), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
 
     def loss_fn(output, target):
@@ -131,36 +127,21 @@ if __name__ == '__main__':
     for epoch in range(train_epochs):
         # train for one epoch
         model.train()
-        post_model.train()
         train_loss = 0.0
         train_accuracy = 0.0
         for i, (input, target) in enumerate(train_loader):
             # Move input and target tensors to the device (CPU or GPU)
             input = input.to(device)
             target = target.to(device)
-            
-            # Clear the gradients
-            optimizer.zero_grad()
-
             # Forward pass
-            output = model(input/256.)
+            output = model(preprocess(input))['out']
 
-            n_cycles = 0
-            gamma = 0.8
-            cycle_loss = 0
-            output_cycle = output.clone().detach().requires_grad_(True)
-            for r in range(n_cycles):
-                cycle_input = torch.cat([input, output_cycle.detach().requires_grad_(True)], dim=1)
-                output_cycle = post_model(cycle_input)
-                
-                r_weight = gamma ** (n_cycles - r - 1)
-                cycle_loss += r_weight * loss_fn(output_cycle, target) / n_cycles
+            loss = loss_fn(output, target)
 
-            loss = cycle_loss + loss_fn(output, target)
-
+            # Backward pass and update weights
 
             y_gt = target[:, :1]
-            y_pred = output_cycle[:, 4:5]
+            y_pred = output[:, 4:5]
 
             loss.backward()
 
@@ -189,30 +170,17 @@ if __name__ == '__main__':
                 # Move input and target tensors to the device (CPU or GPU)
                 input = input.to(device)
                 target = target.to(device)
-
                 y_gt = target[:, :1]
+                y_gt_tiled = aggregate_tile(y_gt)
                 # Forward pass
-                output = model(input/256.)
-
-                gamma = 0.8
-                cycle_loss = 0
-                output_cycle = output.clone().detach().requires_grad_(True)
-                for r in range(n_cycles):
-                    cycle_input = torch.cat([input, output_cycle.detach().requires_grad_(True)], dim=1)
-                    output_cycle = post_model(cycle_input)
-
-                    r_weight = gamma ** (n_cycles - r - 1)
-                    cycle_loss += r_weight * loss_fn(output_cycle, target) / n_cycles
-
-                loss = cycle_loss + loss_fn(output, target)
-
+                output = model(preprocess(input))['out']
+                loss = loss_fn(output, target)
                 # Accumulate loss
                 val_loss += loss.item()
-
-                y_pred = output_cycle[:,:1]
-                pred = (y_pred > 0.5)               
-                val_accuracy += torch.count_nonzero(y_gt == pred)/y_gt.numel()
-                tiled = F.avg_pool2d(F.sigmoid(output_cycle[:, 4:5]), 16, 16, 0)
+                y_pred = output[:, :1]
+                pred = (y_pred > 0.5)
+                val_accuracy += torch.count_nonzero(y_gt == pred) / y_gt.numel()
+                tiled = F.avg_pool2d(F.sigmoid(output[:, 4:5]), 16, 16, 0)
 
                 val_f1 += f1_score(aggregate_tile(y_gt), tiled > 0.5)
 
@@ -236,11 +204,3 @@ if __name__ == '__main__':
             'last_epoch': epoch,
             'optimizer': optimizer.state_dict(),
         }, is_best, args.out_dir, filename=f'checkpoint{epoch+1}.pth.tar')
-
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'state_dict': post_model.state_dict(),
-            'perf': val_loss,
-            'last_epoch': epoch,
-            'optimizer': optimizer.state_dict(),
-        }, is_best, args.out_dir, filename=f'checkpoint{epoch+1}.pth.tar',best_model_name='best_post_model')
