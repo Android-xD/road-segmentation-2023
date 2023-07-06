@@ -97,6 +97,8 @@ if __name__ == '__main__':
     #model, preprocess = createDeepLabv3(2, 400)
     #model, preprocess = createFCN(2, 400)
     model = unet.get_Unet()
+    # state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
+    # model.load_state_dict(state_dict)
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
@@ -113,7 +115,7 @@ if __name__ == '__main__':
         target = target.squeeze(1)
         return loss_fn(output, target)
 
-    train_epochs = 150  # 20 epochs should be enough, if your implementation is right
+    train_epochs = 400  # 20 epochs should be enough, if your implementation is right
     best_score = 100
     for epoch in range(train_epochs):
         # train for one epoch
@@ -122,7 +124,7 @@ if __name__ == '__main__':
         train_accuracy = 0.0
         for i, (input, target) in enumerate(train_loader):
             # Move input and target tensors to the device (CPU or GPU)
-            print(type(input))
+            # print(type(input))
             input = input.type(torch.FloatTensor)
             input = input.to(device)
             target = target.to(device)

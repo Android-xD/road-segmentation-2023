@@ -12,6 +12,7 @@ from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
 from mask_to_submission import main
 import unet2
+import unet
 torch.manual_seed(0)
 
 def aggregate_tile(tensor):
@@ -48,8 +49,8 @@ if __name__ == '__main__':
     )
 
     #model, preprocess = createDeepLabv3(2, 400)
-    model = unet2.get_Unet()
-    state_dict = torch.load("out/model_best.pth_100unet2.tar", map_location=torch.device("cpu"))
+    model = unet.get_Unet()
+    state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
 
     for i, (input, image_filenames) in enumerate(val_loader):
