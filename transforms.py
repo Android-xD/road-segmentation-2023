@@ -107,7 +107,21 @@ class AddPerlinNoise:
     def __repr__(self):
         return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
+from utils import un_aggregate_tile
+class Erase:
+    def __init__(self, tile_size=16, erase_prob=0.5):
+        self.tile_size = tile_size
+        self.erase_prob = erase_prob
 
+    def __call__(self, tensor):
+        h, w = tensor.shape[-2:]
+        mask = torch.rand((1, 1, h//self.tile_size, w//self.tile_size)) < self.erase_prob
+        mask = un_aggregate_tile(mask, self.tile_size)[0,0]
+        tensor[:, mask] = 0
+        return tensor.to(torch.uint8)
+
+    def __repr__(self):
+        return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
 
 def rgb2hsv_torch(rgb: torch.Tensor) -> torch.Tensor:
