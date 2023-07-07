@@ -109,15 +109,16 @@ class AddPerlinNoise:
 
 from utils import un_aggregate_tile
 class Erase:
-    def __init__(self, tile_size=16, erase_prob=0.5):
+    def __init__(self, tile_size=50, erase_prob=0.25):
         self.tile_size = tile_size
         self.erase_prob = erase_prob
 
     def __call__(self, tensor):
         h, w = tensor.shape[-2:]
         mask = torch.rand((1, 1, h//self.tile_size, w//self.tile_size)) < self.erase_prob
-        mask = un_aggregate_tile(mask, self.tile_size)[0,0]
-        tensor[:, mask] = 0
+        mask = un_aggregate_tile(mask, self.tile_size)
+        noise = torch.randint(0, 255, tensor.shape)
+        tensor = mask*noise + ~mask*tensor
         return tensor.to(torch.uint8)
 
     def __repr__(self):
