@@ -11,6 +11,7 @@ from deeplabv3 import createDeepLabv3, load_model
 from fcn import createFCN
 import unet
 import unet2
+import unet_backbone
 import os
 from tensorboardX import SummaryWriter
 import torch.optim.lr_scheduler as lr_scheduler
@@ -96,9 +97,9 @@ if __name__ == '__main__':
 
     #model, preprocess = createDeepLabv3(2, 400)
     #model, preprocess = createFCN(2, 400)
-    model = unet.get_Unet()
-    # state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
-    # model.load_state_dict(state_dict)
+    model = unet_backbone.get_Unet()
+    state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
+    model.load_state_dict(state_dict)
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
@@ -114,8 +115,9 @@ if __name__ == '__main__':
         loss_fn = torch.nn.CrossEntropyLoss()#weight=weight)
         target = target.squeeze(1)
         return loss_fn(output, target)
-
-    train_epochs = 400  # 20 epochs should be enough, if your implementation is right
+    size = 384
+    crop = T.CenterCrop(size)
+    train_epochs = 50  # 20 epochs should be enough, if your implementation is right
     best_score = 100
     for epoch in range(train_epochs):
         # train for one epoch
@@ -128,6 +130,9 @@ if __name__ == '__main__':
             input = input.type(torch.FloatTensor)
             input = input.to(device)
             target = target.to(device)
+
+            #input = crop(input)
+            #target = crop(target)
 
             # Clear the gradients
             optimizer.zero_grad()
@@ -166,7 +171,8 @@ if __name__ == '__main__':
                 # Move input and target tensors to the device (CPU or GPU)
                 input = input.to(device)
                 target = target.to(device)
-
+                target = crop(target)
+                input = crop(input)
                 # Forward pass
                 #output = model(input)
                 #output = model(preprocess(input))['out']
