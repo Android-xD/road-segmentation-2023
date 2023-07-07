@@ -54,8 +54,6 @@ if __name__ == '__main__':
     state_dict = torch.load("out\model_best.pth_150unetres152.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
 
-    store_folder = "out/prediction"
-    os.makedirs(store_folder, exist_ok=True)
     for i, (input, image_filenames) in enumerate(val_loader):
         # Move input and target tensors to the device (CPU or GPU)
         input = input.type(torch.FloatTensor)
@@ -65,14 +63,14 @@ if __name__ == '__main__':
         output = model(input)
         # normalize the output
         output = F.softmax(output)
-        pred = (255*(output[:, 1:2] > 0.5)).detach().cpu().numpy().astype(np.uint8)
+        pred = (255*(output[:, 1:2] > 0.2)).detach().cpu().numpy().astype(np.uint8)
         for j in range(input.shape[0]):
             # vis.output_target_heat(input.detach()[j] / 255, output.detach()[j, 1], 0.3, None)
             # plt.imshow(output[j, 1].detach().cpu().numpy())
             # plt.show()
             img_name = os.path.basename(image_filenames[j])
             print(img_name)
-            cv2.imwrite(f"{store_folder}/mask_{img_name}", pred[j, 0])
+            cv2.imwrite(f"out\prediction\mask_{img_name}", pred[j, 0])
 
     # now all masks are stored, convert it to the csv file
     #main(None)
