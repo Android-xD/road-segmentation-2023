@@ -116,9 +116,9 @@ class Erase:
     def __call__(self, tensor):
         h, w = tensor.shape[-2:]
         mask = torch.rand((1, 1, h//self.tile_size, w//self.tile_size)) < self.erase_prob
-        mask = un_aggregate_tile(mask, self.tile_size)
-        noise = torch.randint(0, 255, tensor.shape)
-        tensor = mask*noise + ~mask*tensor
+        mask = un_aggregate_tile(mask, self.tile_size)[0,0]
+        perm = torch.randperm(torch.count_nonzero(mask))
+        tensor[:, mask] = tensor[:, mask][:, perm]
         return tensor.to(torch.uint8)
 
     def __repr__(self):
