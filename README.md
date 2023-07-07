@@ -59,3 +59,23 @@ data
 │   │   ├── satimage_1.png
 │   │   ├── ...
 ```
+
+## Google Dataset Structure
+```shell
+cd road-segmentation-2023
+wget https://www.polybox.ethz.ch/index.php/s/MMOxAqAsaW81uwC/download 
+unzip download
+rm download
+```
+
+```
+google_data
+├── images
+│   ├── satimage_0.png
+│   ├── satimage_1.png
+│   ├── ...
+├── groundtruth
+│   ├── satimage_0.png
+│   ├── satimage_1.png
+│   ├── ...
+```

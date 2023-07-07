@@ -1,5 +1,6 @@
 # folders
 data/**
+google_data/**
 data_epfl/**
 out/**
 **.DS_Store
@@ -135,3 +136,4 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+api_key.json
