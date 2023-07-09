@@ -22,10 +22,7 @@ def createDeepLabv3(outputchannels=1, input_size=512):
     weights = DeepLabV3_ResNet50_Weights.DEFAULT
     model = models.segmentation.deeplabv3_resnet50(weights=weights, progress=True)
     model.classifier = torch.nn.Sequential(
-        torch.nn.Dropout2d(p=0.5),
-        DeepLabHead(2048, 256),
-        torch.nn.Dropout2d(p=0.5),
-        DeepLabHead(256, outputchannels)
+        DeepLabHead(2048, outputchannels)
     )
     # Set the model in training mode
     model.train()

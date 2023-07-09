@@ -17,8 +17,8 @@ class GeometricTransform:
         self.max_angle = 90
         self.max_trans_x = 100
         self.max_trans_y = 100
-        self.min_scale = 0.7
-        self.max_scale = 2
+        self.min_scale = 0.98
+        self.max_scale = 1.02
         self.max_shear = 0
 
         # state

@@ -76,7 +76,7 @@ if __name__ == '__main__':
 
     dataset = CustomImageDataset(training_set)
 
-    train_dataset, val_dataset = test_train_split(dataset, 0.8)
+    train_dataset, val_dataset = test_train_split(dataset, 0.995)
     val_dataset.dataset.test=True
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
@@ -87,16 +87,16 @@ if __name__ == '__main__':
     )
     val_loader = torch.utils.data.DataLoader(
         val_dataset,
-        batch_size=1,
+        batch_size=4,
         shuffle=False,
         num_workers=1,
         pin_memory=True
     )
-
+    print(len(val_dataset))
     model, preprocess = createDeepLabv3(5, 400)
     model.to(device)
-    # state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
-    # model.load_state_dict(state_dict)
+    #state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
+    #model.load_state_dict(state_dict)
 
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
@@ -111,7 +111,7 @@ if __name__ == '__main__':
         dir = output[:, 3:4] % 1
         tiled = F.avg_pool2d(F.sigmoid(output[:, 4:5]), 16, 16, 0)
 
-        mask_with = target[:, :1]
+        mask_with = target[:, :1] > 0
         mask_dir = target[:, 1:2] < 1
 
         return BCELoss(pred, target[:, :1]) \
@@ -122,7 +122,7 @@ if __name__ == '__main__':
 
 
 
-    train_epochs = 80  # 20 epochs should be enough, if your implementation is right
+    train_epochs = 20  # 20 epochs should be enough, if your implementation is right
     best_score = 100
     for epoch in range(train_epochs):
         # train for one epoch
@@ -165,6 +165,7 @@ if __name__ == '__main__':
         val_loss = 0.0
         val_f1 = 0.0
         val_accuracy = 0.0
+        model.eval()
         with torch.no_grad():
             for i, (input, target) in enumerate(val_loader):
                 # Move input and target tensors to the device (CPU or GPU)

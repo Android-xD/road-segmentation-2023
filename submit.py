@@ -57,8 +57,8 @@ if __name__ == '__main__':
         input = input.squeeze()
         output = model(preprocess(input))['out']
         # normalize the output
-        output = F.sigmoid(output[:,:4:5])
-        pred = (255*(output > 0.5)).detach().cpu().numpy().astype(np.uint8)
+        output = F.sigmoid(output[:,:1])
+        pred = (255*(output > 0.25)).detach().cpu().numpy().astype(np.uint8)
         for j in range(input.shape[0]):
             # vis.output_target_heat(input.detach()[j] / 255, output.detach()[j, 1], 0.3, None)
             # plt.imshow(output[j, 1].detach().cpu().numpy())

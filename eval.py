@@ -119,8 +119,8 @@ def prop(img,dir):
 
 
 if __name__ == '__main__':
-    test_set = r"./data/test/images"
-    training_set = r"./data/training"
+    test_set = r"./data_/test/images"
+    training_set = r"./data_/training"
 
     # Check if GPU is available
     use_cuda = torch.cuda.is_available()
@@ -149,7 +149,7 @@ if __name__ == '__main__':
     model, preprocess = createDeepLabv3(5, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
-
+    model.eval()
     for i, (input, target) in enumerate(val_loader):
 
         # Move input and target tensors to the device (CPU or GPU)
@@ -165,18 +165,28 @@ if __name__ == '__main__':
         sdf = F.sigmoid(sdf)
         width = F.relu6(width)
         dir = output[:,3:4] % 1
-        tile = F.sigmoid(output[:,4:5])
+        tile = F.sigmoid(output[:,:1])
+        tiled = tile > 0.5
         #dir[tile < 0.5] = 0
         #width[tile < 0.5] = 0
-
-        tiled = tile > 0.5
-        gt = target[:,2:3]
-        print(f1_score(gt, tiled))
-        for j in range(4):
-            w = (width[j,0].cpu().detach().numpy() * 70).astype(np.uint8)
-            w = cv2.medianBlur(w, ksize=15)/70.
-            plt.scatter(gt[j].cpu().detach().numpy().ravel(), w.ravel(), alpha=0.1)
-        plt.show()
+        max, val = 0, (0,0)
+        gt = target[:,:1]
+        gt = aggregate_tile(gt.to(torch.float))
+        for th1 in np.linspace(0,1,100):
+            for th2 in np.linspace(0,1,100):
+                tiled_ = tile > th1
+                
+                tiled_ = aggregate_tile(tiled_.to(torch.float),th2)
+                score = f1_score(gt, tiled_)
+                
+                if score > max:
+                    max, val = score, (th1,th2)
+        print(max, val)
+        #for j in range(4):
+        #    w = (width[j,0].cpu().detach().numpy() * 70).astype(np.uint8)
+        #    w = cv2.medianBlur(w, ksize=15)/70.
+        #    plt.scatter(gt[j].cpu().detach().numpy().ravel(), w.ravel(), alpha=0.1)
+        #plt.show()
 
         for j in range(target.shape[0]):
             img = np.transpose(input.cpu().detach()[j] / 255., (1, 2, 0))
@@ -191,11 +201,11 @@ if __name__ == '__main__':
             #vis.direction_field(out[3], out[0],8)
             images = [img]+out
             names = ["img", "probability", "signed distance","width", "direction", "patch prediction", "final prediction", "gt prediction"]
-            #plot_images(images, names)
-            plot_images([img[:, :, 0] + prop(out[0], out[3]), out[3]])
+            plot_images(images, names)
+            #plot_images([img[:, :, 0] + prop(out[0], out[3]), out[3]])
             #plt.show()
-            plt.show()
-            #plt.savefig(f"./figures/out_{i}_{j}.jpg")
+            #plt.show()
+            plt.savefig(f"./figures/out_{i}_{j}.jpg")
 
     target = aggregate_tile(target.to(float))
 
