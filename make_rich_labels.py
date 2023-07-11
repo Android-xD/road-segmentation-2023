@@ -99,6 +99,7 @@ if __name__ == '__main__':
 
     for p in tqdm(paths):
         img = cv2.imread(p, 0)
+        img = cv2.inRange(img, 128, 255)
         width_label = compute_width_label(img)
         cv2.imwrite(f"{store_folder_width}/{os.path.basename(p)}", width_label)
 
