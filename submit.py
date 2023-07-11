@@ -10,6 +10,7 @@ from deeplabv3 import createDeepLabv3,load_model
 from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
 from mask_to_submission import main
+from resample import resample
 
 torch.manual_seed(0)
 
@@ -30,7 +31,7 @@ def aggregate_tile(tensor):
 
 
 if __name__ == '__main__':
-    test_set = r"data/test"
+    test_set = r"./data_/test"
 
     # Check if GPU is available
     use_cuda = torch.cuda.is_available()
@@ -40,7 +41,7 @@ if __name__ == '__main__':
     dataset = CustomImageDataset(test_set, False)
     val_loader = torch.utils.data.DataLoader(
         dataset,
-        batch_size=4,
+        batch_size=1,
         shuffle=False,
         num_workers=1,
         pin_memory=True
@@ -49,23 +50,25 @@ if __name__ == '__main__':
     model, preprocess = createDeepLabv3(5, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
+    model.eval()
+    query = lambda input : model(preprocess(input))['out']
     store_folder = "out/prediction"
     os.makedirs(store_folder, exist_ok=True)
     for i, (input, image_filenames) in enumerate(val_loader):
         # Move input and target tensors to the device (CPU or GPU)
         input = input.to(device)
         input = input.squeeze()
-        output = model(preprocess(input))['out']
+        output = resample(query,test_set,i)
         # normalize the output
-        output = F.sigmoid(output[:,:4:5])
-        pred = (255*(output > 0.5)).detach().cpu().numpy().astype(np.uint8)
-        for j in range(input.shape[0]):
+        output = F.sigmoid(output[:,:1])
+        pred = (255*(output > 0.25)).detach().cpu().numpy().astype(np.uint8)
+        j = 0
             # vis.output_target_heat(input.detach()[j] / 255, output.detach()[j, 1], 0.3, None)
             # plt.imshow(output[j, 1].detach().cpu().numpy())
             # plt.show()
-            img_name = os.path.basename(image_filenames[j])
-            print(img_name)
-            cv2.imwrite(f"{store_folder}/mask_{img_name}", pred[j, 0])
+        img_name = os.path.basename(image_filenames[j])
+        print(img_name)
+        cv2.imwrite(f"{store_folder}/mask_{img_name}", pred[j, 0])
 
     # now all masks are stored, convert it to the csv file
     # by running mask_to_submission.py

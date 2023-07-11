@@ -64,8 +64,8 @@ def save_checkpoint(states, is_best, output_dir,
                    os.path.join(output_dir, 'model_best.pth.tar'))
 
 if __name__ == '__main__':
-    dataset_path = r"./data/test_set_images"
-    training_set = r"./data/training"
+    dataset_path = r"./data_/test_set_images"
+    training_set = r"./data_/training"
 
     # Check if GPU is available
     use_cuda = torch.cuda.is_available()
@@ -79,6 +79,7 @@ if __name__ == '__main__':
 
     train_dataset, val_dataset = test_train_split(dataset, 0.8)
     val_dataset.dataset.test=True
+    train_dataset.dataset.test = True
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=4,
@@ -95,6 +96,8 @@ if __name__ == '__main__':
     )
 
     model, preprocess = createDeepLabv3(5, 400)
+    state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
+    model.load_state_dict(state_dict)
     post_model = CycleCNN()
 
     args = parse_args()
@@ -147,7 +150,7 @@ if __name__ == '__main__':
 
 
             y_gt = target[:, :1]
-            y_pred = output[:, :1]
+            y_pred = F.sigmoid(output[:, :1])
 
             loss.backward()
 
@@ -186,7 +189,7 @@ if __name__ == '__main__':
                 # Accumulate loss
                 val_loss += loss.item()
 
-                y_pred = output[:,:1]
+                y_pred = F.sigmoid(output[:,:1])
                 pred = (y_pred > 0.5)               
                 val_accuracy += torch.count_nonzero(y_gt == pred)/y_gt.numel()
                 tiled = F.avg_pool2d(F.sigmoid(output[:, 4:5]), 16, 16, 0)

@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH -n 4
-#SBATCH --time=01:00:00
+#SBATCH --time=04:00:00
 #SBATCH --gpus=1
 #SBATCH --mem-per-cpu=4000
 #SBATCH --tmp=4000 # per node!!
