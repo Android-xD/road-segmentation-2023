@@ -98,8 +98,8 @@ if __name__ == '__main__':
     #model, preprocess = createDeepLabv3(2, 400)
     #model, preprocess = createFCN(2, 400)
     model = unet_backbone.get_Unet()
-    state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
-    model.load_state_dict(state_dict)
+    #state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
+    #model.load_state_dict(state_dict)
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
@@ -131,8 +131,8 @@ if __name__ == '__main__':
             input = input.to(device)
             target = target.to(device)
 
-            #input = crop(input)
-            #target = crop(target)
+           # input = crop(input)
+           # target = crop(target)
 
             # Clear the gradients
             optimizer.zero_grad()
