@@ -65,7 +65,7 @@ class CustomImageDataset(Dataset):
             # compute direction
             mask_dir = dir_from_sdf(mask_sdf)
 
-            mask_gt[mask_gt > 128] = 1.
+            mask_gt[mask_gt > 0.5] = 1.
 
             mask_sdf *= self.affineTransform.scale
             # range (0,255) -> (0, 64) -rescale-> (0,1)

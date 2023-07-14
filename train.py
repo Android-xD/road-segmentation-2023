@@ -79,7 +79,7 @@ if __name__ == '__main__':
 
     train_dataset, val_dataset = test_train_split(dataset, 0.8)
     val_dataset.dataset.test=True
-    train_dataset.dataset.test = True
+    # train_dataset.dataset.test = True
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
         batch_size=4,
@@ -102,7 +102,9 @@ if __name__ == '__main__':
 
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-    scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+        optimizer, mode="min", factor=0.1, patience=5, verbose=True
+    )
 
     def loss_fn(output, target):
         BCELoss = torch.nn.BCELoss()
@@ -124,7 +126,7 @@ if __name__ == '__main__':
 
 
 
-    train_epochs = 80  # 20 epochs should be enough, if your implementation is right
+    train_epochs = 50  # 20 epochs should be enough, if your implementation is right
     best_score = 100
     for epoch in range(train_epochs):
         # train for one epoch
@@ -165,7 +167,7 @@ if __name__ == '__main__':
                 print(f'Train Epoch: {epoch+1} [{i+1}/{len(train_loader)}]\t'
                       f'Loss: {train_loss / (i + 1):.4f}')
         
-        scheduler.step()
+        scheduler.step(train_loss)
         # print(f"lr{optimizer.param_groups[0]['lr']}")
         train_accuracy/=i+1
         train_loss/=i+1
