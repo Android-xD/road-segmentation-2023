@@ -8,6 +8,7 @@ import visualize as vis
 import torchvision.transforms as T
 from sklearn.metrics import f1_score, accuracy_score
 from deeplabv3 import createDeepLabv3, load_model
+from unet import get_Unet
 import os
 from tensorboardX import SummaryWriter
 import torch.optim.lr_scheduler as lr_scheduler
@@ -64,8 +65,8 @@ def save_checkpoint(states, is_best, output_dir,
                    os.path.join(output_dir, 'model_best.pth.tar'))
 
 if __name__ == '__main__':
-    dataset_path = r"./data_/test_set_images"
-    training_set = r"./data_/training"
+    dataset_path = r"./data/test_set_images"
+    training_set = r"./data/training"
 
     # Check if GPU is available
     use_cuda = torch.cuda.is_available()
@@ -77,7 +78,7 @@ if __name__ == '__main__':
 
     dataset = CustomImageDataset(training_set)
 
-    train_dataset, val_dataset = test_train_split(dataset, 0.8)
+    train_dataset, val_dataset = test_train_split(dataset, 0.995)
     val_dataset.dataset.test=True
     # train_dataset.dataset.test = True
     train_loader = torch.utils.data.DataLoader(
@@ -95,9 +96,9 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(5, 400)
-    state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
-    model.load_state_dict(state_dict)
+    model, preprocess = get_Unet(5, 400)
+    #state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
+    #model.load_state_dict(state_dict)
     post_model = CycleCNN()
 
     args = parse_args()
