@@ -96,7 +96,7 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(5, 400)
+    model, preprocess = get_Unet(1, 400)
     #state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     #model.load_state_dict(state_dict)
     post_model = CycleCNN()
@@ -107,21 +107,21 @@ if __name__ == '__main__':
 
     def loss_fn(output, target):
         BCELoss = torch.nn.BCELoss()
-        MSELoss = torch.nn.MSELoss()
+        #MSELoss = torch.nn.MSELoss()
         pred = F.sigmoid(output[:, :1])
-        sdf = F.sigmoid(output[:, 1:2])
-        width = F.relu6(output[:, 2:3])
-        dir = output[:, 3:4] % 1
-        tiled = F.avg_pool2d(F.sigmoid(output[:, 4:5]), 16, 16, 0)
+        #sdf = F.sigmoid(output[:, 1:2])
+        #width = F.relu6(output[:, 2:3])
+        #dir = output[:, 3:4] % 1
+        #tiled = F.avg_pool2d(F.sigmoid(output[:, 4:5]), 16, 16, 0)
 
         mask_with = target[:, :1]
-        mask_dir = target[:, 1:2] < 1
+        #mask_dir = target[:, 1:2] < 1
 
-        return BCELoss(pred, target[:, :1]) \
-               + MSELoss(sdf, target[:, 1:2]) \
-               + MSELoss(width*mask_with, target[:, 2:3]) \
-               + CircularMSELoss(dir*mask_dir, target[:, 3:4]) \
-               + f1_loss(aggregate_tile(target[:, :1]), tiled)
+        return BCELoss(pred, target[:, :1]) # \
+               #+ MSELoss(sdf, target[:, 1:2]) \
+               #+ MSELoss(width*mask_with, target[:, 2:3]) \
+               #+ CircularMSELoss(dir*mask_dir, target[:, 3:4]) \
+               #+ f1_loss(aggregate_tile(target[:, :1]), tiled)
 
 
 
@@ -193,7 +193,7 @@ if __name__ == '__main__':
                 y_pred = F.sigmoid(output[:,:1])
                 pred = (y_pred > 0.5)               
                 val_accuracy += torch.count_nonzero(y_gt == pred)/y_gt.numel()
-                tiled = F.avg_pool2d(F.sigmoid(output[:, 4:5]), 16, 16, 0)
+                tiled = F.avg_pool2d(F.sigmoid(output[:, 0:1]), 16, 16, 0)
 
                 val_f1 += f1_score(aggregate_tile(y_gt), tiled > 0.5)
 
