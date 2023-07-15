@@ -1,6 +1,10 @@
 import torch
 
 
+def un_aggregate_tile(tensor, tile_size=16):
+    return tensor.repeat_interleave(tile_size, 2).repeat_interleave(tile_size, 3)
+
+
 def aggregate_tile(tensor,thresh=0.25):
     """ takes a tensor of shape b, _, h, w and aggregates per 16x16 patch"""
     b, _, h, w = tensor.shape

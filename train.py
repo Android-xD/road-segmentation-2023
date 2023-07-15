@@ -96,16 +96,14 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = get_Unet(5, 400)
+    model, preprocess = createDeepLabv3(5, 400)
     #state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     #model.load_state_dict(state_dict)
     post_model = CycleCNN()
 
     args = parse_args()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
-        optimizer, mode="min", factor=0.1, patience=5, verbose=True
-    )
+    scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
 
     def loss_fn(output, target):
         BCELoss = torch.nn.BCELoss()
