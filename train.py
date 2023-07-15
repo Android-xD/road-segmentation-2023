@@ -102,7 +102,7 @@ if __name__ == '__main__':
     post_model = CycleCNN()
 
     args = parse_args()
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
 
     def loss_fn(output, target):
