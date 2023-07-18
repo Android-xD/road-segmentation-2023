@@ -10,4 +10,4 @@
 #SBATCH --open-mode=truncate # to overrides out and err files, you can also use
 
 source startup.sh
-python decoder.py
+python train.py

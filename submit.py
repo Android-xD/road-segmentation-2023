@@ -47,7 +47,7 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(5, 400)
+    model, preprocess = createDeepLabv3(1, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()
@@ -61,7 +61,7 @@ if __name__ == '__main__':
         output = resample(query,test_set,i)
         # normalize the output
         output = F.sigmoid(output[:,:1])
-        pred = (255*(output > 0.25)).detach().cpu().numpy().astype(np.uint8)
+        pred = (255*(output > 0.35)).detach().cpu().numpy().astype(np.uint8)
         j = 0
             # vis.output_target_heat(input.detach()[j] / 255, output.detach()[j, 1], 0.3, None)
             # plt.imshow(output[j, 1].detach().cpu().numpy())
