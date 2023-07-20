@@ -1,5 +1,7 @@
 import cv2
 import matplotlib.pyplot as plt
+from torch.utils.data import WeightedRandomSampler
+
 from dataset import CustomImageDataset,test_train_split
 import numpy as np
 import torch
@@ -11,6 +13,7 @@ from deeplabv3 import createDeepLabv3, load_model
 import os
 from tensorboardX import SummaryWriter
 import torch.optim.lr_scheduler as lr_scheduler
+import torch.nn.functional as F
 
 torch.manual_seed(0)
 
@@ -78,8 +81,8 @@ if __name__ == '__main__':
 
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=4,
         shuffle=True,
+        batch_size=4,
         num_workers=1,
         pin_memory=True
     )
@@ -109,13 +112,21 @@ if __name__ == '__main__':
         target = target.squeeze(1)
         return loss_fn(output, target)
 
+    init_temp = 1.0
+    temp_decay = 0.9
+
     train_epochs = 25  # 20 epochs should be enough, if your implementation is right
     best_score = 0
+
     for epoch in range(train_epochs):
+
+        losses = []
+
         # train for one epoch
         model.train()
         train_loss = 0.0
         train_accuracy = 0.0
+
         for i, (input, target) in enumerate(train_loader):
             # Move input and target tensors to the device (CPU or GPU)
             input = input.to(device)
@@ -128,6 +139,7 @@ if __name__ == '__main__':
             output = model(preprocess(input))['out']
 
             loss = loss_fn(output, target)
+            losses.append(loss)
 
             # Backward pass and update weights
             loss.backward()
@@ -184,6 +196,27 @@ if __name__ == '__main__':
         is_best = val_loss < best_score
         if is_best:
             best_score = val_loss
+
+            # Calculate softmax probabilities with temperature
+            probabilities = F.softmax(torch.tensor(losses) / init_temp, dim=0)
+
+            # Update the temperature for the next epoch
+            init_temp *= temp_decay
+
+            # Convert probabilities to weights for the weighted random sampler
+            weights = probabilities.tolist()
+
+            # Create a weighted random sampler
+            sampler = WeightedRandomSampler(weights, len(weights))
+
+            # Create the dataloader with the sampler
+            dataloader = torch.utils.data.DataLoader(
+                dataset,
+                sampler=sampler,
+                batch_size=4,
+                num_workers=1,
+                pin_memory=True
+            )
 
         # Print progress
         print(f'Validation Epoch: {epoch+1}\tLoss: {val_loss:.4f}\t F1: {val_f1} \t Accuracy: {val_accuracy}')
