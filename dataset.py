@@ -115,7 +115,7 @@ if __name__ == "__main__":
         img_list = [img, color, geo]
         img_list = [np.transpose(im.squeeze(), (1, 2, 0)) for im in img_list]
         vis.plot_images(img_list, titles=["Original Image", "Color Augmentation", "Geometric Augmentation"], hpad=0.5)
-        plt.show()#plt.savefig(f"{store_figures}/augmentations_{i}.jpg")
+        plt.savefig(f"{store_figures}/augmentations_{i}.jpg")
 
     ## Rich label plots
     dataset_rich = CustomImageDataset(r"./data/training", rich=True, geo_aug=False, color_aug=False)

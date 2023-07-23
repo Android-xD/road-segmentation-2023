@@ -13,7 +13,7 @@ def quantile_tile(tensor, n_quantiles=25, tile_size=16):
     # Permute the dimensions to get the desired shape
     output_tensor = output_tensor.permute(0, 1, 2, 4, 3, 5)
     output_tensor = output_tensor.reshape(b, 1, patch_h, patch_w, tile_size * tile_size)
-    quantiles = torch.quantile(output_tensor, torch.linspace(0, 1, n_quantiles).to(device), dim=4) * 1.
+    quantiles = torch.quantile(output_tensor, torch.linspace(0, 1, n_quantiles), dim=4) * 1.
     # shape n_quantiles, b,1,25,25
     return quantiles
 
