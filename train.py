@@ -70,7 +70,7 @@ def save_checkpoint(states, is_best, output_dir,
 if __name__ == '__main__':
     args = parse_args()
 
-    training_set = r"./data_google/training"
+    training_set = r"./data/training"
 
     run_id = time.strftime("_%Y%m%d-%H%M%S")
     writer = SummaryWriter(log_dir=f"out/logs/{run_id}")
@@ -82,8 +82,8 @@ if __name__ == '__main__':
 
     output_channels = 5 if rich_labels else 1
     model, preprocess = get_model(output_channels, 400)
-    #state_dict = torch.load("out/model_best_5output.pth.tar", map_location=torch.device("cpu"))
-    #model.load_state_dict(state_dict)
+    state_dict = torch.load("out/model_best_google30.pth.tar", map_location=torch.device("cpu"))
+    model.load_state_dict(state_dict)
 
     dataset_aug = CustomImageDataset(training_set, train=True, rich=rich_labels, geo_aug=True, color_aug=True)
     dataset_clean = CustomImageDataset(training_set, train=True, rich=rich_labels, geo_aug=False, color_aug=False)

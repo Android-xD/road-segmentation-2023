@@ -110,12 +110,13 @@ if __name__ == "__main__":
     for i in range(10):
         img, label = dataset_clean[i]
         color, _ = dataset_color[i]
-        geo, _ = dataset_geo[i]
+        geo, label_aug = dataset_geo[i]
 
         img_list = [img, color, geo]
         img_list = [np.transpose(im.squeeze(), (1, 2, 0)) for im in img_list]
-        vis.plot_images(img_list, titles=["Original Image", "Color Augmentation", "Geometric Augmentation"], hpad=0.5)
-        plt.savefig(f"{store_figures}/augmentations_{i}.jpg")
+        img_list = [img_list[0], label[0], img_list[1], img_list[2], label_aug[0]]
+        vis.plot_images(img_list, titles=["Original Image", "Original Mask", "Color Augmentation", "Geometric Augmentation", "Augmented Mask"], hpad=0.5)
+        plt.savefig(f"{store_figures}/augmentations_{i}.png")
 
     ## Rich label plots
     dataset_rich = CustomImageDataset(r"./data/training", rich=True, geo_aug=False, color_aug=False)
