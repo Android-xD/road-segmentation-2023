@@ -1,7 +1,7 @@
 import cv2
 import os
 import matplotlib.pyplot as plt
-from dataset import CustomImageDataset,test_train_split
+from dataset import CustomImageDataset
 import numpy as np
 import torch
 import visualize as vis
@@ -11,6 +11,8 @@ from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
 from mask_to_submission import main
 from resample import resample
+from decoder import decoder, quantile_tile
+from utils import un_aggregate_tile
 
 torch.manual_seed(0)
 
@@ -31,14 +33,14 @@ def aggregate_tile(tensor):
 
 
 if __name__ == '__main__':
-    test_set = r"./data_/test"
+    test_set = r"./data/test"
 
     # Check if GPU is available
     use_cuda = torch.cuda.is_available()
 
     # Define the device to be used for computation
     device = torch.device("cuda" if use_cuda else "cpu")
-    dataset = CustomImageDataset(test_set, False)
+    dataset = CustomImageDataset(test_set, False, False, False, False)
     val_loader = torch.utils.data.DataLoader(
         dataset,
         batch_size=1,
@@ -58,7 +60,7 @@ if __name__ == '__main__':
         # Move input and target tensors to the device (CPU or GPU)
         input = input.to(device)
         input = input.squeeze()
-        output = resample(query,test_set,i)
+        output = resample(query, test_set, i, 50)
         # normalize the output
         output = F.sigmoid(output[:,:1])
         pred = (255*(output > 0.35)).detach().cpu().numpy().astype(np.uint8)

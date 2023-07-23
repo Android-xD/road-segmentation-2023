@@ -14,13 +14,14 @@ class GeometricTransform:
 
     def __init__(self):
         # sample ranges
-        self.max_angle = 90
+        self.max_angle = 180
         self.max_trans_x = 100
         self.max_trans_y = 100
-        self.min_scale = 0.7
-        self.max_scale = 2
+        self.min_scale = 0.95
+        self.max_scale = 1.05
         self.max_shear = 0
-
+        self.hfilp_prob = 0.5
+        self.vfilp_prob = 0.5
         # state
         self.angle = 0
         self.translate = [0, 0]
@@ -58,10 +59,10 @@ class GeometricTransform:
         return x
 
     def sample_params(self):
-        self.hfilp = random.random() > 0.5
-        self.vfilp = random.random() > 0.5
+        self.hfilp = random.random() < self.hfilp_prob
+        self.vfilp = random.random() < self.vfilp_prob
         self.angle = random.uniform(-self.max_angle, self.max_angle)
-        self.translate = [random.random() * self.max_trans_x, random.random() * self.max_trans_y]
+        self.translate = [random.uniform(-self.max_trans_x, self.max_trans_x), random.uniform(-self.max_trans_y, self.max_trans_y)]
         self.scale = random.uniform(self.min_scale, self.max_scale)
         self.shear = random.random()*self.max_shear
 
@@ -78,8 +79,11 @@ class GeometricTransform:
 import matplotlib.pyplot as plt
 
 class AddPerlinNoise:
-    def __init__(self, res=8):
+    def __init__(self, res=8,h=0.1,s=0.1,v=10):
         self.res = res
+        self.h = h
+        self.s = s
+        self.v = v
 
     def __call__(self, tensor):
         h, w = tensor.shape[-2:]
@@ -89,9 +93,9 @@ class AddPerlinNoise:
         #noise += np.array([generate_perlin_noise_2d((ph, pw), (2*self.res, 2*self.res)) for i in range(3)])
         noise = noise[:, :h, :w]
         noise -= np.mean(noise)
-        noise[0] = 0.1 * noise[0]
-        noise[1] = 0.1 * noise[1]
-        noise[2] = 10 * noise[2]
+        noise[0] = self.h * noise[0]
+        noise[1] = self.s * noise[1]
+        noise[2] = self.v * noise[2]
 
         color_noise = torch.tensor(noise, dtype=float)
 

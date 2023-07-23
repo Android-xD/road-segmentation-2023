@@ -1,7 +1,7 @@
 import cv2
 import os
 import matplotlib.pyplot as plt
-from dataset import CustomImageDataset,test_train_split
+from dataset import CustomImageDataset
 import numpy as np
 import torch
 import visualize as vis
@@ -13,6 +13,12 @@ from mask_to_submission import main
 from resample import resample
 from decoder import decoder, quantile_tile
 from utils import un_aggregate_tile
+
+# Check if GPU is available
+use_cuda = torch.cuda.is_available()
+
+# Define the device to be used for computation
+device = torch.device("cuda" if use_cuda else "cpu")
 
 torch.manual_seed(0)
 
@@ -33,7 +39,7 @@ def aggregate_tile(tensor):
 
 
 if __name__ == '__main__':
-    test_set = r"./data_/test"
+    test_set = r"./data/test"
 
     # Check if GPU is available
     use_cuda = torch.cuda.is_available()

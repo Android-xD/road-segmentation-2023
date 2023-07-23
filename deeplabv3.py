@@ -21,21 +21,24 @@ def createDeepLabv3(outputchannels=1, input_size=512):
         model: Returns the DeepLabv3 model with the ResNet101 backbone.
     """
 
+    #weights = DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT
+    #model = models.segmentation.deeplabv3_mobilenet_v3_large(weights=weights, progress=True)
+    #model.classifier = torch.nn.Sequential(DeepLabHead(960, outputchannels))
+
     #weights = DeepLabV3_ResNet101_Weights.DEFAULT
     #model = models.segmentation.deeplabv3_resnet101(weights=weights, progress=True)
     #model.classifier = torch.nn.Sequential(DeepLabHead(2048, outputchannels))
 
-    #weights = DeepLabV3_ResNet50_Weights.DEFAULT
-    #model = models.segmentation.deeplabv3_resnet50(weights=weights, progress=True)
-    #model.classifier = torch.nn.Sequential(
-    #    torch.nn.Dropout2d(p=0.5),
-    #    DeepLabHead(2048, outputchannels)
-    #)
 
+    weights = DeepLabV3_ResNet50_Weights.DEFAULT
+    model = models.segmentation.deeplabv3_resnet50(weights=weights, progress=True)
+    model.classifier = torch.nn.Sequential(
+        torch.nn.Dropout2d(p=0.5),
+        DeepLabHead(2048, 256),
+        torch.nn.Dropout2d(p=0.5),
+        DeepLabHead(256, outputchannels)
+    )
 
-    weights = DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT
-    model = models.segmentation.deeplabv3_mobilenet_v3_large(weights=weights, progress=True)
-    model.classifier = torch.nn.Sequential(DeepLabHead(960, outputchannels))
     # Set the model in training mode
     model.train()
 
@@ -49,14 +52,9 @@ def createDeepLabv3(outputchannels=1, input_size=512):
     return model, preprocess
 
 
-def load_model(model_state_file):
+def load_model(model_state_file, outputchannels=1, input_size=512):
     """Load file from path."""
-    weights = DeepLabV3_ResNet50_Weights.DEFAULT
-    model = models.segmentation.deeplabv3_resnet50(weights=weights, progress=True)
-    model.classifier = DeepLabHead(2048, 37)
-    # Set the model in training mode
-    model.eval()
-    preprocess = weights.transforms(antialias=True)
+    createDeepLabv3(outputchannels=outputchannels, input_size=input_size)
 
     state_dict = torch.load(model_state_file, map_location=torch.device("cpu"))
     model.load_state_dict(state_dict["state_dict"])

@@ -10,35 +10,46 @@ from torch.utils.data import Subset
 import transforms
 import glob
 from make_rich_labels import dir_from_sdf
-from visualize import plot_images
-from utils import aggregate_tile
 
 
 
-def test_train_split(dataset, train_split=0.8):
-    dataset_size = len(dataset)
-    indices = list(range(dataset_size))
-    split = int(train_split * dataset_size)
-    train_indices, val_indices = indices[:split], indices[split:]
-    return Subset(dataset, train_indices), Subset(dataset, val_indices)
+def split(dataset_size, split_proportions=[0.8,0.2]):
+
+    assert sum(split_proportions) == 1, "The sum of split_proportions should be 1."
+    indices = torch.randperm(dataset_size)
+
+    splits = []
+    start_idx = 0
+    for proportion in split_proportions:
+        split_size = int(proportion * dataset_size)
+        end_idx = start_idx + split_size
+        split_indices = indices[start_idx:end_idx]
+        splits.append(split_indices)
+        start_idx = end_idx
+
+    return tuple(splits)
 
 class CustomImageDataset(Dataset):
-    def __init__(self, data_dir, train=True, test=False):
+    def __init__(self, data_dir, train=True, rich=True, geo_aug=True, color_aug=True):
         """
         train: specifies if there are labels or not
         """
         self.train = train
-        self.test = test
+        self.rich = rich
+        self.geo_aug = geo_aug
+        self.color_aug = color_aug
+
         self.img_list = glob.glob(os.path.join(data_dir, "images", "*"))
         if self.train:
             self.mask_list_gt = glob.glob(os.path.join(data_dir, "groundtruth", "*"))
-            self.mask_list_sdf = glob.glob(os.path.join(data_dir, "groundtruth_sdf", "*"))
-            self.mask_list_width = glob.glob(os.path.join(data_dir, "groundtruth_width", "*"))
+            if self.rich:
+                self.mask_list_sdf = glob.glob(os.path.join(data_dir, "groundtruth_sdf", "*"))
+                self.mask_list_width = glob.glob(os.path.join(data_dir, "groundtruth_width", "*"))
 
         self.affineTransform = transforms.GeometricTransform()
         self.color_transform = T.Compose([
-            T.ColorJitter(0.1, 0.5, 0.1),
-            transforms.AddPerlinNoise()
+            T.ColorJitter(0.1, 0.2, 0.1),
+            transforms.AddPerlinNoise(8, 0.02, 0.1, 10),
         ]
         )
 
@@ -47,42 +58,40 @@ class CustomImageDataset(Dataset):
 
     def __getitem__(self, idx):
         image = read_image(self.img_list[idx], ImageReadMode.RGB)
+
+        if self.geo_aug:
+            self.affineTransform.sample_params()
+        else:
+            self.affineTransform.zero_params()
+
+        image = self.affineTransform(image)
+        image = image.to(torch.uint8)
+        if self.color_aug:
+            image = self.color_transform(image)
+
         if self.train:
             mask_gt = read_image(self.mask_list_gt[idx])
-            mask_sdf = read_image(self.mask_list_sdf[idx])
-            mask_width = read_image(self.mask_list_width[idx])
-            
-            if not self.test:
-                self.affineTransform.sample_params()
-            else:
-                self.affineTransform.zero_params()
-            image = self.affineTransform(image)
             mask_gt = self.affineTransform(mask_gt)
-            mask_sdf = self.affineTransform(mask_sdf)
-            mask_width = self.affineTransform(mask_width)
-            mask_width *= self.affineTransform.scale
-
-            # compute direction
-            mask_dir = dir_from_sdf(mask_sdf)
-
             mask_gt[mask_gt > 0.5] = 1.
+            if self.rich:
+                mask_sdf = read_image(self.mask_list_sdf[idx])
+                mask_width = read_image(self.mask_list_width[idx])
+                mask_sdf = self.affineTransform(mask_sdf)
+                mask_width = self.affineTransform(mask_width)
+                mask_width *= self.affineTransform.scale
 
-            mask_sdf *= self.affineTransform.scale
-            # range (0,255) -> (0, 64) -rescale-> (0,1)
-            mask_sdf = torch.clip(mask_sdf/64, 0, 1)
+                # compute direction
+                mask_dir = dir_from_sdf(mask_sdf)
 
-            mask_width = mask_width/70 # be in [0,1]
+                mask_sdf *= self.affineTransform.scale
+                # range (0,255) -> (0, 64) -rescale-> (0,1)
+                mask_sdf = torch.clip(mask_sdf/64, 0, 1)
 
-            # crop = T.CenterCrop(300)
-            # image = crop(image)
-            # mask = crop(mask)
+                mask_width = mask_width/70 # be in [0,1]
 
-            # image = self.affineTransform.backward(image)
-            # mask = self.affineTransform.backward(mask)
-            mask = torch.cat([mask_gt, mask_sdf, mask_width, mask_dir], 0).to(torch.float32)
-            image = image.to(torch.uint8)
-            if self.color_transform and not self.test:
-                image = self.color_transform(image)
+                mask = torch.cat([mask_gt, mask_sdf, mask_width, mask_dir], 0).to(torch.float32)
+            else:
+                mask = mask_gt.to(torch.float32)
         else:
             mask = self.img_list[idx]
         return image, mask
@@ -93,15 +102,29 @@ if __name__ == "__main__":
     store_figures = r"./figures"
     os.makedirs(store_figures, exist_ok=True)
 
-    dataset = CustomImageDataset(r"./data/training",test=True)
-    print(len(dataset))
+    ## augmentation plots
+    dataset_clean = CustomImageDataset(r"./data/training", rich=False, geo_aug=False, color_aug=False)
+    dataset_color = CustomImageDataset(r"./data/training", rich=False, geo_aug=False, color_aug=True)
+    dataset_geo = CustomImageDataset(r"./data/training", rich=False, geo_aug=True, color_aug=False)
 
     for i in range(10):
-        img, label = dataset[i]
-        print(img.shape)
-        print(label.shape)
+        img, label = dataset_clean[i]
+        color, _ = dataset_color[i]
+        geo, _ = dataset_geo[i]
 
+        img_list = [img, color, geo]
+        img_list = [np.transpose(im.squeeze(), (1, 2, 0)) for im in img_list]
+        vis.plot_images(img_list, titles=["Original Image", "Color Augmentation", "Geometric Augmentation"], hpad=0.5)
+        plt.show()#plt.savefig(f"{store_figures}/augmentations_{i}.jpg")
+
+    ## Rich label plots
+    dataset_rich = CustomImageDataset(r"./data/training", rich=True, geo_aug=False, color_aug=False)
+
+    for i in range(10):
+        img, label = dataset_rich[i]
         img = np.transpose(img.squeeze(), (1, 2, 0))
+        label[3, label[0] != 1] = 0
+
         img_list = [img] + [label[j] for j in range(label.shape[0])]
-        vis.plot_images(img_list)
-        plt.savefig(f"{store_figures}/{i}.jpg")
+        vis.plot_images(img_list, titles=["Original Image", "Original Mask", "Distance Function", "Road Width", "Road Direction"], hpad=0.5)
+        plt.savefig(f"{store_figures}/rich_labels_{i}.png")
