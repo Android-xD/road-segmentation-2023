@@ -9,3 +9,8 @@ echo "Activating virtual environment"
 source /cluster/scratch/$USER/CIL/bin/activate
 /cluster/scratch/$USER/CIL/bin/pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 /cluster/scratch/$USER/CIL/bin/pip install -r requirements.txt
+
+git clone git@github.com:qubvel/segmentation_models.pytorch.git
+cd segmentation_models.pytorch
+pip install -e .
+cd ..

@@ -13,6 +13,7 @@ from mask_to_submission import main
 from resample import resample
 from decoder import decoder, quantile_tile
 from utils import un_aggregate_tile
+from unet_backbone import get_Unet
 
 torch.manual_seed(0)
 
@@ -49,7 +50,7 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(1, 400)
+    model, preprocess = get_Unet(1, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()
@@ -60,6 +61,7 @@ if __name__ == '__main__':
         # Move input and target tensors to the device (CPU or GPU)
         input = input.to(device)
         input = input.squeeze()
+        # output = query(input.unsqueeze(0)) without resample
         output = resample(query, test_set, i, 50)
         # normalize the output
         output = F.sigmoid(output[:,:1])

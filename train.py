@@ -8,11 +8,13 @@ import visualize as vis
 import torchvision.transforms as T
 from sklearn.metrics import f1_score, accuracy_score
 from deeplabv3 import createDeepLabv3, load_model
-from unet import get_Unet
+from unet_backbone import get_Unet
+from other_models import get_resnext, get_fpn
 import os
 from tensorboardX import SummaryWriter
 import torch.optim.lr_scheduler as lr_scheduler
 from utils import aggregate_tile, bce_loss, rich_loss, f1_score, accuracy_precision_and_recall
+from torchgeometry.losses import dice, focal, tversky
 import torch.nn.functional as F
 from torch.utils.data import Subset
 
@@ -78,12 +80,12 @@ if __name__ == '__main__':
     train_epochs = 30  # 20 epochs should be enough
     rich_labels = False
 
-    get_model = createDeepLabv3# get_Unet
+    get_model = get_Unet #createDeepLabv3 # get_fpn#get_Unet #
 
     output_channels = 5 if rich_labels else 1
-    model, preprocess = get_model(output_channels, 400)
-    state_dict = torch.load("out/model_best_google30.pth.tar", map_location=torch.device("cpu"))
-    model.load_state_dict(state_dict)
+    model, preprocess, postprocess = get_model(output_channels, 400)
+    #state_dict = torch.load("out/model_best_google30.pth.tar", map_location=torch.device("cpu"))
+    #model.load_state_dict(state_dict)
 
     dataset_aug = CustomImageDataset(training_set, train=True, rich=rich_labels, geo_aug=True, color_aug=True)
     dataset_clean = CustomImageDataset(training_set, train=True, rich=rich_labels, geo_aug=False, color_aug=False)
@@ -145,7 +147,7 @@ if __name__ == '__main__':
             optimizer.zero_grad()
 
             # Forward pass
-            output = model(preprocess(input))['out']
+            output = postprocess(model(preprocess(input)))
 
             loss = loss_fn(output, target)
             loss.backward()
@@ -194,7 +196,7 @@ if __name__ == '__main__':
                 # Move input and target tensors to the device (CPU or GPU)
                 input = input.to(device)
                 target = target.to(device)
-                output = model(preprocess(input))['out']
+                output = postprocess(model(preprocess(input)))
                 y_pred = F.sigmoid(output[:, :1])
                 y_gt = target[:, :1]
                 agg_target = aggregate_tile(target[:, :1])
@@ -253,7 +255,7 @@ if __name__ == '__main__':
 
                 y_gt = target[:, :1]
                 # Forward pass
-                output = model(preprocess(input))['out']
+                output = postprocess(model(preprocess(input)))
 
                 loss = loss_fn(output, target)
 

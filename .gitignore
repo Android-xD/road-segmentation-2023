@@ -8,6 +8,7 @@ submission.csv
 **.DS_Store
 **.out
 **.err
+segmentation_models.pytorch/**
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

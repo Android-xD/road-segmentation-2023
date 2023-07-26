@@ -197,7 +197,7 @@ class ResnetUNet2(nn.Module):
         x = torch.cat([x, x], dim=1)
         x = self.dec_block4(x)
 
-        return {"out": self.head(x)}
+        return self.head(x)
 
 
 class ResnetUNet3(nn.Module):
@@ -307,7 +307,7 @@ def get_Unet(outputchannels=1, input_size=512):
     else:
         pre = lambda x: x.type('torch.FloatTensor')
 
-    return model, pre
+    return model, pre, lambda x:x
 
 
 if __name__ == "__main__":

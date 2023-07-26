@@ -93,7 +93,7 @@ def get_Unet(outputchannels=1, input_size=512):
     else:
         pre = lambda x: x.type('torch.FloatTensor')
 
-    return model, pre
+    return model, pre, lambda x:x
 
 
 if __name__ == "__main__":

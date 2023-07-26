@@ -49,7 +49,10 @@ def createDeepLabv3(outputchannels=1, input_size=512):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
 
-    return model, preprocess
+    def post(x):
+        return x["out"]
+
+    return model, preprocess, post
 
 
 def load_model(model_state_file, outputchannels=1, input_size=512):
