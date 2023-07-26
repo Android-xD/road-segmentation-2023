@@ -5,7 +5,8 @@ https://github.com/msminhas93/DeepLabv3FineTuning/blob/master/model.py
 DeepLabv3 Model download and change the head for your prediction.
 """
 from torchvision import models
-from torchvision.models.segmentation import DeepLabV3_ResNet50_Weights
+from torchvision.models.segmentation import DeepLabV3_ResNet50_Weights, LRASPP_MobileNet_V3_Large_Weights, DeepLabV3_ResNet101_Weights, DeepLabV3_MobileNet_V3_Large_Weights
+
 from torchvision.models.segmentation.deeplabv3 import DeepLabHead
 import torch
 
@@ -19,9 +20,25 @@ def createDeepLabv3(outputchannels=1, input_size=512):
     Returns:
         model: Returns the DeepLabv3 model with the ResNet101 backbone.
     """
+
+    #weights = DeepLabV3_MobileNet_V3_Large_Weights.DEFAULT
+    #model = models.segmentation.deeplabv3_mobilenet_v3_large(weights=weights, progress=True)
+    #model.classifier = torch.nn.Sequential(DeepLabHead(960, outputchannels))
+
+    #weights = DeepLabV3_ResNet101_Weights.DEFAULT
+    #model = models.segmentation.deeplabv3_resnet101(weights=weights, progress=True)
+    #model.classifier = torch.nn.Sequential(DeepLabHead(2048, outputchannels))
+
+
     weights = DeepLabV3_ResNet50_Weights.DEFAULT
     model = models.segmentation.deeplabv3_resnet50(weights=weights, progress=True)
-    model.classifier = DeepLabHead(2048, outputchannels)
+    model.classifier = torch.nn.Sequential(
+        torch.nn.Dropout2d(p=0.5),
+        DeepLabHead(2048, 256),
+        torch.nn.Dropout2d(p=0.5),
+        DeepLabHead(256, outputchannels)
+    )
+
     # Set the model in training mode
     model.train()
 
@@ -32,17 +49,15 @@ def createDeepLabv3(outputchannels=1, input_size=512):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
 
-    return model, preprocess
+    def post(x):
+        return x["out"]
+
+    return model, preprocess, post
 
 
-def load_model(model_state_file):
+def load_model(model_state_file, outputchannels=1, input_size=512):
     """Load file from path."""
-    weights = DeepLabV3_ResNet50_Weights.DEFAULT
-    model = models.segmentation.deeplabv3_resnet50(weights=weights, progress=True)
-    model.classifier = DeepLabHead(2048, 37)
-    # Set the model in training mode
-    model.eval()
-    preprocess = weights.transforms(antialias=True)
+    createDeepLabv3(outputchannels=outputchannels, input_size=input_size)
 
     state_dict = torch.load(model_state_file, map_location=torch.device("cpu"))
     model.load_state_dict(state_dict["state_dict"])
