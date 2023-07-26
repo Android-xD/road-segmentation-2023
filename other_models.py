@@ -1,7 +1,8 @@
 import torch
 import numpy as np
 import segmentation_models_pytorch as smp
-
+import torchvision.transforms.functional as TF
+import torch.nn as nn
 
 
 def get_resnext(outputchannels=1, input_size=512):
@@ -25,7 +26,7 @@ def get_resnext(outputchannels=1, input_size=512):
     return model, preprocessing_fn, lambda x:x
 
 def get_fpn(outputchannels=1, input_size=512):
-    encoder_name = 'efficientnet-b7',
+    encoder_name = 'efficientnet-b7'
     ENCODER_WEIGHTS = 'imagenet'
     ACTIVATION = None # could be None for logits or 'softmax2d' for multiclass segmentation
     # create segmentation model with pretrained encoder
@@ -39,6 +40,8 @@ def get_fpn(outputchannels=1, input_size=512):
     model = model.to(device)
     model.train()
 
+    pad = nn.ReflectionPad2d((input_size%32)//2)
+
     def pre(tensor):
         if torch.cuda.is_available():
             tensor = tensor.type('torch.cuda.FloatTensor')
@@ -48,6 +51,7 @@ def get_fpn(outputchannels=1, input_size=512):
         tensor = tensor /255.
         tensor -= torch.tensor([[[0.485]], [[0.456]], [[0.406]]]).to(device)
         tensor /= torch.tensor([[[0.229]], [[0.224]], [[0.225]]]).to(device)
+        tensor = pad(tensor)
         return tensor
 
-    return model, pre, lambda x:x
+    return model, pre, lambda x:TF.center_crop(x, input_size)
