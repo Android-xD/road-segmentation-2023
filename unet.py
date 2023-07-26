@@ -40,7 +40,7 @@ class Unet(nn.Module):
         self.dec_block2 = Block(512, 256)
         self.dec_block3 = Block(256, 128)
         self.dec_block4 = Block(128, 64)
-        self.head = nn.Sequential(nn.Conv2d(64, output_channels,1), nn.Sigmoid())
+        self.head = nn.Sequential(nn.Conv2d(64, output_channels, 1))
 
     def forward(self, x):
         # enc_features = []

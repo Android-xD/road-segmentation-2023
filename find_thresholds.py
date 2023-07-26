@@ -66,13 +66,13 @@ if __name__ == '__main__':
 
 
     model, preprocess = createDeepLabv3(5, 400)
-    state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
+    state_dict = torch.load("out/model_best_5output.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()
 
     query = lambda input : model(preprocess(input))['out']
     dataset = CustomImageDataset(training_set, geo_aug=False,color_aug=False, train=True)
-    m = 30 #len(dataset)
+    m = 10 #len(dataset)
 
     n_ticks = 101
     recall_space_16 = torch.zeros((m, n_ticks, n_ticks))
@@ -93,11 +93,19 @@ if __name__ == '__main__':
                     accuracy_precision_and_recall(agg_target, aggregate_tile((y_pred > th1) * 1.0, thresh=th2))
 
         f1_space = 2. / (1 / torch.mean(recall_space_16[:i+1], dim=0) + 1 / torch.mean(precision_space_16[:i+1], dim=0))
-        print(torch.max(f1_space))
-    plt.imshow(f1_space)
-    num_ticks = 10
+        f1_space_cur = 2. / (
+                    1 / recall_space_16[i] + 1 /precision_space_16[i])
+        print(torch.max(f1_space), torch.max(f1_space_cur))
+    plt.imshow(f1_space, cmap='jet')
+    plt.colorbar()
+    num_ticks = 11
     tick_locations = np.linspace(0, 1, num_ticks)
-    tick_labels = ["{:.2f}".format(tick) for tick in tick_locations]
+    tick_labels = ["{:.1f}".format(tick) for tick in tick_locations]
+    plt.xlabel("Per Patch Threshold")
+    plt.ylabel("Per Pixel Threshold")
     plt.xticks(tick_locations * (n_ticks-1), tick_labels)
     plt.yticks(tick_locations * (n_ticks-1), tick_labels)
-    plt.show()
+    #plt.show()
+    store_figures = r"./figures"
+    plt.savefig(f"{store_figures}/thresholds.png")
+
