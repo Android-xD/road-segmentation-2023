@@ -12,5 +12,5 @@ source /cluster/scratch/$USER/CIL/bin/activate
 
 git clone git@github.com:qubvel/segmentation_models.pytorch.git
 cd segmentation_models.pytorch
-pip install -e .
+/cluster/scratch/$USER/CIL/bin/pip install -e .
 cd ..
