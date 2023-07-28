@@ -34,7 +34,7 @@ def parse_args():
     # load model state for pth.tar file
     parser.add_argument('--load_model',
                         help='filepath to load the model out/*.pth.tar or None',
-                        default='model_best.pth.tar',
+                        default='./out/model_best.pth.tar',
                         type=str)
 
     parser.add_argument('--threshold',
