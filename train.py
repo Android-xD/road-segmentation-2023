@@ -166,7 +166,7 @@ if __name__ == '__main__':
         loss_fn = bce_loss
 
     # set the optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
     scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
 
 
