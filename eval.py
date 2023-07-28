@@ -1,18 +1,13 @@
 import cv2
-import os
 import matplotlib.pyplot as plt
-from dataset import CustomImageDataset, split
 import numpy as np
 import torch
-import visualize as vis
-import torchvision.transforms as T
-from deeplabv3 import createDeepLabv3,load_model
-from sklearn.metrics import f1_score, accuracy_score
-import torch.nn.functional as F
-from mask_to_submission import mask_to_submission_strings
-from utils import aggregate_tile
-from visualize import plot_images
 from torch.utils.data import Subset
+
+import utils.visualize as vis
+from dataset import CustomImageDataset, split
+from models.deeplabv3 import createDeepLabv3
+from utils.visualize import plot_images
 
 torch.manual_seed(0)
 
@@ -121,8 +116,6 @@ if __name__ == '__main__':
 
     # Check if GPU is available
     use_cuda = torch.cuda.is_available()
-
-    # Define the device to be used for computation
     device = torch.device("cuda" if use_cuda else "cpu")
 
     dataset= CustomImageDataset(training_set, train=True, geo_aug=False, color_aug=False)

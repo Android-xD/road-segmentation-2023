@@ -1,12 +1,12 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-import torchvision
 
 
 class Block(nn.Module):
-    # a repeating structure composed of two convolutional layers with batch normalization and ReLU activations
+    """
+    A repeating structure composed of two convolutional layers 
+    with batch normalization and ReLU activations.
+    """
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.block = nn.Sequential(nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=3, padding=1),
@@ -20,6 +20,9 @@ class Block(nn.Module):
 
 
 class Unet(nn.Module):
+    """
+    Unet model.
+    """
     def __init__(self, output_channels=2, chs=(3, 64, 128, 256, 512, 1024)):
         super().__init__()
         self.enc_block1 = Block(3, 64)
@@ -70,7 +73,8 @@ class Unet(nn.Module):
 
 
 def get_Unet(outputchannels=1, input_size=512):
-    """ Basic Unet Architecture.
+    """ 
+    Basic Unet Architecture.
 
     Args:
         outputchannels (int, optional): The number of output channels
@@ -97,10 +101,13 @@ def get_Unet(outputchannels=1, input_size=512):
 
 
 if __name__ == "__main__":
+    """
+    Test the model.
+    """
+    import cv2
     import matplotlib.pyplot as plt
     import numpy as np
     from torchvision import transforms as T
-    import cv2
 
     # Check if GPU is available
     use_cuda = torch.cuda.is_available()

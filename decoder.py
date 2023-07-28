@@ -1,31 +1,29 @@
-import cv2
 import os
-import matplotlib.pyplot as plt
-from dataset import CustomImageDataset,split
-import numpy as np
+
 import torch
-import visualize as vis
-import torchvision.transforms as T
-from deeplabv3 import createDeepLabv3, load_model
-from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
-from mask_to_submission import main
-from utils import aggregate_tile
-from torch.autograd import Variable
 import torch.nn.functional as func
-from utils import f1_score, f1_loss, quantile_tile, nanstd
-from torch.utils.data import Subset
-from resample import resample, resample_output
 from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import f1_score
+from torch.autograd import Variable
+
+from dataset import CustomImageDataset, split
+from models.deeplabv3 import createDeepLabv3
+from resample import resample_output
+from utils.utils import (aggregate_tile, f1_loss, f1_score, nanstd,
+                         quantile_aggregate_tile)
 
 torch.manual_seed(0)
 
+# Check if GPU is available
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda" if use_cuda else "cpu")
 
 
 class decoder(torch.nn.Module):
-
+    """
+    A simple decoder network that takes in a vector of features and outputs a single value.
+    """
     def __init__(self, num_inputs):
         super(decoder, self).__init__()
         self.linear1 = torch.nn.Linear(num_inputs, 512)
@@ -36,6 +34,7 @@ class decoder(torch.nn.Module):
         x = (func.relu(self.linear1(x)))
         x = (func.relu(self.linear2(x)))
         return (func.sigmoid(self.linear3(x)))
+
 
 def get_patch_dataset():
     training_set = r"./data/training"
@@ -64,7 +63,7 @@ def get_patch_dataset():
         output_mean = F.sigmoid(output_samples).nanmean(keepdim=True, dim=0)
         output_std = nanstd(F.sigmoid(output_samples), keepdim=True, dim=0)
         for j, output in enumerate([output_i, output_mean, output_mode, output_std]):
-            quantiles = quantile_tile(output, num_ticks)
+            quantiles = quantile_aggregate_tile(output, num_ticks)
             quantiles = torch.flatten(quantiles, start_dim=1, end_dim=4).T
             X[num_patches_per_image*i:num_patches_per_image*(i+1), num_ticks*j:num_ticks*(j+1)] = quantiles
 

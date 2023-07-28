@@ -1,15 +1,15 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 import torchvision
-from torchvision.models import resnet50, ResNet50_Weights
-from torchvision.models import resnet18, ResNet18_Weights
-from torchvision.models import resnet152, ResNet152_Weights
-import numpy as np
+from torchvision.models import (ResNet18_Weights, ResNet50_Weights,
+                                ResNet152_Weights, resnet18, resnet50,
+                                resnet152)
 
 
 class ResnetWithHead(nn.Module):
+    """
+    Resnet with a custom head.
+    """
     def __init__(self, pretrained=False, freeze=False):
         super().__init__()
 
@@ -55,7 +55,10 @@ class ResnetWithHead(nn.Module):
 
 
 class Block(nn.Module):
-    # a repeating structure composed of two convolutional layers with batch normalization and ReLU activations
+    """ 
+    A repeating structure composed of two convolutional layers 
+    with batch normalization and ReLU activations.
+    """
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.block = nn.Sequential(nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=3, padding=1),
@@ -69,6 +72,9 @@ class Block(nn.Module):
 
 
 class ResnetUNet(nn.Module):
+    """
+    ResnetUNet with skip connections.
+    """
     def __init__(self, pretrained=False, freeze=False):
         super().__init__()
 
@@ -113,22 +119,19 @@ class ResnetUNet(nn.Module):
         x1 = self.resnet.layer1(x)
         x2 = self.resnet.layer2(x1)
         x = self.resnet.layer3(x2)
-        # x = self.resnet.layer4(x3)
 
-        # x = self.up(self.relu(self.conv1(x))) + x3
-        # x = self.batch1(x)
         x = self.up(self.relu(self.conv2(x))) + x2
-        # x = self.batch2(x)
         x = self.up(self.relu(self.conv3(x))) + x1
-        # x = self.batch3(x)
         x = self.up(self.relu(self.conv4(x)))
-        # x = self.batch4(x)
         x = self.up(self.relu(self.conv5(x)))
         x = self.conv_out(x).squeeze(1)
         return x
 
 
 class ResnetUNet2(nn.Module):
+    """
+    ResnetUNet with skip connections.
+    """
     def __init__(self, pretrained=False, freeze=False):
         super().__init__()
 
@@ -175,25 +178,17 @@ class ResnetUNet2(nn.Module):
         x1 = self.resnet.layer1(x)
         x2 = self.resnet.layer2(x1)
         x = self.resnet.layer3(x2)
-        # x = self.resnet.layer4(x3)
 
-        # x = self.upconv6(x)
-        # x = torch.cat([x, x3], dim=1)
-        # x = self.dec_block6(x)
         x = self.upconv1(x)
-        # x = self.drop(x)
         x = torch.cat([x, x2], dim=1)
         x = self.dec_block1(x)
         x = self.upconv2(x)
-        # x = self.drop(x)
         x = torch.cat([x, x1], dim=1)
         x = self.dec_block2(x)
         x = self.upconv3(x)
-        # x = self.drop(x)
         x = torch.cat([x, x], dim=1)
         x = self.dec_block3(x)
         x = self.upconv4(x)
-        # x = self.drop(x)
         x = torch.cat([x, x], dim=1)
         x = self.dec_block4(x)
 
@@ -201,6 +196,9 @@ class ResnetUNet2(nn.Module):
 
 
 class ResnetUNet3(nn.Module):
+    """
+    ResnetUNet with skip connections.
+    """
     def __init__(self, pretrained=False, freeze=False):
         super().__init__()
 
@@ -252,11 +250,7 @@ class ResnetUNet3(nn.Module):
         x1 = self.resnet.layer1(x)
         x2 = self.resnet.layer2(x1)
         x3 = self.resnet.layer3(x2)
-        # x = self.resnet.layer4(x3)
 
-        # x = self.upconv6(x)
-        # x = torch.cat([x, x3], dim=1)
-        # x = self.dec_block6(x)
         xa = self.upconv1(x3)
         x = torch.cat([xa, x2], dim=1)
         x = self.dec_block1(x) + xa
@@ -280,7 +274,8 @@ class ResnetUNet3(nn.Module):
 
 
 def get_Unet(outputchannels=1, input_size=512):
-    """ Basic Unet Architecture with resnet backbone.
+    """ 
+    Basic Unet Architecture with resnet backbone.
 
     Args:
         outputchannels (int, optional): The number of output channels
@@ -289,32 +284,32 @@ def get_Unet(outputchannels=1, input_size=512):
     Returns:
         model: Returns the Unet model with preprocess method.
     """
-    # weights = DeepLabV3_ResNet50_Weights.DEFAULT
-    # model = models.segmentation.deeplabv3_resnet50(weights=weights, progress=True)
     model = ResnetUNet2(pretrained=True, freeze=False)
 
     # Set the model in training mode
     model.train()
 
-    # preprocess.resize_size = [input_size]
-
     # Move the model to the GPU
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
 
+    # Define the preprocessing function
     if torch.cuda.is_available():
         pre = lambda x: x.type('torch.cuda.FloatTensor')
     else:
         pre = lambda x: x.type('torch.FloatTensor')
 
+    # return model, preprocessing function, and postprocessing function
     return model, pre, lambda x:x
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
+    """
+    Test the model.
+    """
+    import cv2
     import numpy as np
     from torchvision import transforms as T
-    import cv2
 
     # Check if GPU is available
     use_cuda = torch.cuda.is_available()

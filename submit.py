@@ -4,16 +4,16 @@ import matplotlib.pyplot as plt
 from dataset import CustomImageDataset
 import numpy as np
 import torch
-import visualize as vis
+import utils.visualize as vis
 import torchvision.transforms as T
-from deeplabv3 import createDeepLabv3,load_model
+from models.deeplabv3 import createDeepLabv3,load_model
 from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
 from mask_to_submission import main
 from resample import resample
-from decoder import decoder, quantile_tile
-from utils import un_aggregate_tile
-from unet_backbone import get_Unet
+from decoder import decoder, quantile_aggregate_tile
+from utils.utils import un_aggregate_tile
+from models.unet_backbone import get_Unet
 
 torch.manual_seed(0)
 

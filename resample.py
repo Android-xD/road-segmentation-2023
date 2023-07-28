@@ -4,14 +4,14 @@ import matplotlib.pyplot as plt
 from dataset import CustomImageDataset
 import numpy as np
 import torch
-import visualize as vis
+import utils.visualize as vis
 import torchvision.transforms as T
-from deeplabv3 import createDeepLabv3,load_model
+from models.deeplabv3 import createDeepLabv3,load_model
 from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
 from mask_to_submission import mask_to_submission_strings
-from utils import aggregate_tile, f1_score,nanstd
-from visualize import plot_images
+from utils.utils import aggregate_tile, f1_score,nanstd
+from utils.visualize import plot_images
 from tqdm import tqdm
 
 torch.manual_seed(0)
@@ -125,4 +125,3 @@ if __name__ == '__main__':
         plot_images(images, names, hpad=0.5)
         #plt.show()
         plt.savefig(f"./figures/resample_{i}.png")
-

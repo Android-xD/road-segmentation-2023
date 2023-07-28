@@ -4,15 +4,15 @@ import matplotlib.pyplot as plt
 from dataset import CustomImageDataset
 import numpy as np
 import torch
-import visualize as vis
+import utils.visualize as vis
 import torchvision.transforms as T
-from deeplabv3 import createDeepLabv3,load_model
+from models.deeplabv3 import createDeepLabv3,load_model
 from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
 from mask_to_submission import main
 from resample import resample, resample_output
-from decoder import decoder, quantile_tile
-from utils import un_aggregate_tile, nanstd, quantile_tile
+from decoder import decoder, quantile_aggregate_tile
+from utils.utils import un_aggregate_tile, nanstd, quantile_aggregate_tile
 
 # Check if GPU is available
 use_cuda = torch.cuda.is_available()
@@ -82,7 +82,7 @@ if __name__ == '__main__':
         output_std = nanstd(F.sigmoid(output_samples), keepdim=True, dim=0)
         X = torch.zeros((num_patches_per_image,num_features))
         for j, output in enumerate([output_i, output_mean, output_mode, output_std]):
-            quantiles = quantile_tile(output, num_ticks)
+            quantiles = quantile_aggregate_tile(output, num_ticks)
             quantiles = torch.flatten(quantiles, start_dim=1, end_dim=4).T
             X[:, num_ticks * j:num_ticks * (j + 1)] = quantiles
 

@@ -1,5 +1,6 @@
 import numpy as np
-"""Source https://github.com/pvigier/perlin-numpy"""
+
+"""Source: https://github.com/pvigier/perlin-numpy"""
 
 def interpolant(t):
     return t*t*t*(t*(t*6 - 15) + 10)
