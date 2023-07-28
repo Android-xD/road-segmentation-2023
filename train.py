@@ -38,6 +38,18 @@ def parse_args():
     parser.add_argument('--model',
                         help='model',
                         type=str)
+
+    # load model state for pth.tar file
+    parser.add_argument('--load_model',
+                        help='filepath to load the model out/*.pth.tar or None',
+                        default=None,
+                        type=str)
+
+    # specify file to store model state
+    parser.add_argument('--store_model',
+                        help='filepath to store the model',
+                        default='model_best.pth.tar',
+                        type=str)
         
     # number of epochs
     parser.add_argument('--epochs',
@@ -63,7 +75,7 @@ def parse_args():
     return args
 
 
-def save_checkpoint(states, is_best, output_dir, filename='model_best.pth.tar'):
+def save_checkpoint(state, is_best, output_dir, filename='model_best.pth.tar'):
     """Save model checkpoint
 
     Args:
@@ -76,8 +88,8 @@ def save_checkpoint(states, is_best, output_dir, filename='model_best.pth.tar'):
     os.makedirs(output_dir, exist_ok=True)
 
     # save the checkpoint
-    if is_best and 'state_dict' in states:
-        torch.save(states['state_dict'], os.path.join(output_dir, filename))
+    if is_best:
+        torch.save(state, os.path.join(output_dir, filename))
 
 
 if __name__ == '__main__':
@@ -120,8 +132,9 @@ if __name__ == '__main__':
     # create the model
     output_channels = 5 if args.rich else 1
     model, preprocess, postprocess = get_model(output_channels, 400)
-    #state_dict = torch.load("out/model_best_google30.pth.tar", map_location=torch.device("cpu"))
-    #model.load_state_dict(state_dict)
+    if not args.load_model is None:
+        state_dict = torch.load(args.load_model, map_location=torch.device("cpu"))
+        model.load_state_dict(state_dict)
 
     # create the dataset
     dataset_aug = CustomImageDataset(training_set, train=True, rich=args.rich, geo_aug=True, color_aug=True)
@@ -355,13 +368,7 @@ if __name__ == '__main__':
         is_best = val_loss < best_score
         if is_best:
             best_score = val_loss
-        save_checkpoint({
-            'epoch': epoch + 1,
-            'state_dict': model.state_dict(),
-            'perf': val_loss,
-            'last_epoch': epoch,
-            'optimizer': optimizer.state_dict(),
-        }, is_best, args.out, filename=f'checkpoint{epoch + 1}.pth.tar')
+        save_checkpoint(model.state_dict(), is_best, args.out, args.store_model)
 
         # Print progress
         print(f'Validation Epoch: {epoch + 1}\tLoss: {val_loss:.4f}\t F1: {val_f1:.4f} \t Accuracy: {val_accuracy:.4f}\t'
