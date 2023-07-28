@@ -83,49 +83,42 @@ class CustomImageDataset(Dataset):
         return len(self.img_list)
 
     def __getitem__(self, idx):
-        """
-        Returns a tuple of (image, mask) where mask is the ground truth plus optional rich labels.
-        """
         image = read_image(self.img_list[idx], ImageReadMode.RGB)
-        mask = np.array([])
 
-        # apply augmentations
         if self.geo_aug:
             self.affineTransform.sample_params()
-            image = self.affineTransform(image)
+        else:
+            self.affineTransform.zero_params()
+
+        image = self.affineTransform(image)
+        image = image.to(torch.uint8)
         if self.color_aug:
             image = self.color_transform(image)
 
-        image = image.to(torch.uint8)
-
-        # load labels
         if self.train:
-            # load ground truth label
             mask_gt = read_image(self.mask_list_gt[idx])
             mask_gt = self.affineTransform(mask_gt)
-            mask_gt[mask_gt > 0.5] = 1. # binarize
-            mask = mask_gt.to(torch.float32)
-
-            # load rich labels
+            mask_gt[mask_gt > 0.5] = 1.
             if self.rich:
-                # load sdf label
                 mask_sdf = read_image(self.mask_list_sdf[idx])
+                mask_width = read_image(self.mask_list_width[idx])
                 mask_sdf = self.affineTransform(mask_sdf)
+                mask_width = self.affineTransform(mask_width)
+                mask_width *= self.affineTransform.scale
 
-                # compute direction label
+                # compute direction
                 mask_dir = dir_from_sdf(mask_sdf)
-
+                # compute sdf
                 mask_sdf *= self.affineTransform.scale
                 mask_sdf = torch.clip(mask_sdf/64, 0, 1)
 
-                # load width label
-                mask_width = read_image(self.mask_list_width[idx])
-                mask_width = self.affineTransform(mask_width)
-                mask_width *= self.affineTransform.scale
                 mask_width = mask_width/70 # be in [0,1]
 
                 mask = torch.cat([mask_gt, mask_sdf, mask_width, mask_dir], 0).to(torch.float32)
-                
+            else:
+                mask = mask_gt.to(torch.float32)
+        else:
+            mask = self.img_list[idx]
         return image, mask
 
 
