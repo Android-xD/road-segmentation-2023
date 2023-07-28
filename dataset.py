@@ -18,8 +18,8 @@ def split(dataset_size, split_proportions=[0.8,0.2]):
     Splits a dataset into given proportions.
 
     Args:
-        dataset_size: number of samples in the dataset
-        split_proportions: list of proportions for each split
+        dataset_size (int): number of samples in the dataset
+        split_proportions (list[int]): list of proportions for each split
 
     returns: tuple of indices for each split
     """

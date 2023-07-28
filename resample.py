@@ -1,18 +1,13 @@
-import cv2
-import os
 import matplotlib.pyplot as plt
-from dataset import CustomImageDataset
 import numpy as np
 import torch
-import utils.visualize as vis
-import torchvision.transforms as T
-from models.deeplabv3 import createDeepLabv3,load_model
-from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
-from mask_to_submission import mask_to_submission_strings
-from utils.utils import aggregate_tile, f1_score,nanstd
-from utils.visualize import plot_images
 from tqdm import tqdm
+
+from dataset import CustomImageDataset
+from models.deeplabv3 import createDeepLabv3
+from utils.utils import nanstd
+from utils.visualize import plot_images
 
 torch.manual_seed(0)
 use_cuda = torch.cuda.is_available()
@@ -103,7 +98,8 @@ if __name__ == '__main__':
     device = torch.device("cuda" if use_cuda else "cpu")
 
 
-    model, preprocess = createDeepLabv3(1, 400)
+    model, preprocess, _ = createDeepLabv3(5, 400)
+
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()
@@ -112,7 +108,7 @@ if __name__ == '__main__':
     query = lambda input : model(preprocess(input))['out']
     for i in range(len(dataset)):
         output = F.sigmoid(resample(query, training_set, i, 1))
-        output_samples, output_masks = resample_output(query, training_set, i, 100)
+        output_samples, output_masks = resample_output(query, training_set, i, 10)
         output_samples[output_masks == 0] = torch.nan
         output_mode, _ = F.sigmoid(output_samples).nanmedian(keepdim=True, dim=0)
         output_mean = F.sigmoid(output_samples).nanmean(keepdim=True, dim=0)
@@ -122,6 +118,5 @@ if __name__ == '__main__':
         out = [o.cpu().detach().numpy() for o in out]
         images = [img]+out
         names = ["Input Image", "Prediction", "Mean Prediction TTA", "Median Prediction TTA", "Standard Deviation TTA"]
-        plot_images(images, names, hpad=0.5)
-        #plt.show()
+        plot_images(images, names, hpad=1.)
         plt.savefig(f"./figures/resample_{i}.png")

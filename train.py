@@ -9,8 +9,8 @@ from tensorboardX import SummaryWriter
 from torch.utils.data import Subset
 
 from dataset import CustomImageDataset, split
-from extraFiles.other_models import get_fpn, get_resnext
 from models.deeplabv3 import createDeepLabv3
+from models.fpn import get_fpn
 from models.unet_backbone import get_Unet
 from utils.utils import (accuracy_precision_and_recall, aggregate_tile,
                          bce_loss, rich_loss)
@@ -63,7 +63,7 @@ def parse_args():
     return args
 
 
-def save_checkpoint(states, is_best, output_dir, filename='checkpoint.pth.tar'):
+def save_checkpoint(states, is_best, output_dir, filename='model_best.pth.tar'):
     """Save model checkpoint
 
     Args:
@@ -77,7 +77,7 @@ def save_checkpoint(states, is_best, output_dir, filename='checkpoint.pth.tar'):
 
     # save the checkpoint
     if is_best and 'state_dict' in states:
-        torch.save(states['state_dict'], os.path.join(output_dir, 'model_best.pth.tar'))
+        torch.save(states['state_dict'], os.path.join(output_dir, filename))
 
 
 if __name__ == '__main__':
@@ -111,8 +111,6 @@ if __name__ == '__main__':
         get_model = get_Unet
     elif args.model == 'fpn':
         get_model = get_fpn
-    elif args.model == 'resnext':
-        get_model = get_resnext
     else:
         raise ValueError('Invalid model name')
 
@@ -168,7 +166,7 @@ if __name__ == '__main__':
         loss_fn = bce_loss
 
     # set the optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
 
 

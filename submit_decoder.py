@@ -1,51 +1,28 @@
-import cv2
 import os
+
+import cv2
 import matplotlib.pyplot as plt
-from dataset import CustomImageDataset
 import numpy as np
 import torch
-import utils.visualize as vis
-import torchvision.transforms as T
-from models.deeplabv3 import createDeepLabv3,load_model
-from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
-from mask_to_submission import main
-from resample import resample, resample_output
+import torchvision.transforms as T
+from sklearn.metrics import accuracy_score, f1_score
+
+import utils.visualize as vis
+from dataset import CustomImageDataset
 from decoder import decoder, quantile_aggregate_tile
-from utils.utils import un_aggregate_tile, nanstd, quantile_aggregate_tile
-
-# Check if GPU is available
-use_cuda = torch.cuda.is_available()
-
-# Define the device to be used for computation
-device = torch.device("cuda" if use_cuda else "cpu")
-
-torch.manual_seed(0)
-
-def aggregate_tile(tensor):
-    """ takes a """
-    b, _, h, w = tensor.shape
-    patch_h = h // 16
-    patch_w = w // 16
-
-    # Reshape the tensor
-    output_tensor = tensor.view(b, 1, patch_h, 16, patch_w, 16)
-
-    # Permute the dimensions to get the desired shape
-    #output_tensor = output_tensor.permute(0, 1, 2, 4, 3, 5)
-    return torch.mean(output_tensor, dim=(3, 5)) > 0.25
-
-
-
+from mask_to_submission import main
+from models.deeplabv3 import createDeepLabv3, load_model
+from resample import resample, resample_output
+from utils.utils import (aggregate_tile, nanstd, quantile_aggregate_tile,
+                         un_aggregate_tile)
 
 if __name__ == '__main__':
     test_set = r"./data/test"
-
-    # Check if GPU is available
-    use_cuda = torch.cuda.is_available()
-
     # Define the device to be used for computation
+    use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
+
     dataset = CustomImageDataset(test_set, False,color_aug=False, geo_aug=False)
     val_loader = torch.utils.data.DataLoader(
         dataset,
@@ -55,7 +32,7 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(1, 400)
+    model, preprocess, _ = createDeepLabv3(1, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()

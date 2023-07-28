@@ -36,17 +36,16 @@ def view_output(input, output, target):
     plt.savefig(f"./figures/out_resampled_{i}.jpg")
 
 
-
 if __name__ == '__main__':
     test_set = r"./data/test/images"
     training_set = r"./data/training"
 
-    model, preprocess = createDeepLabv3(5, 400)
-    state_dict = torch.load("out/model_best_5output.pth.tar", map_location=torch.device("cpu"))
+    model, preprocess, postprocess = createDeepLabv3(5, 400)
+    state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()
 
-    query = lambda input : model(preprocess(input))['out']
+    query = lambda input : postprocess(model(preprocess(input)))
     dataset = CustomImageDataset(training_set, geo_aug=False,color_aug=False, train=True)
     m = 10 #len(dataset)
 
@@ -84,4 +83,3 @@ if __name__ == '__main__':
     plt.yticks(tick_locations * (n_ticks-1), tick_labels)
     store_figures = r"./figures"
     plt.savefig(f"{store_figures}/thresholds.png")
-

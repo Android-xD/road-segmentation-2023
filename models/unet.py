@@ -4,6 +4,7 @@ import torch.nn as nn
 
 class Block(nn.Module):
     """
+    Source: project_3_final.ipynb provided in class
     A repeating structure composed of two convolutional layers 
     with batch normalization and ReLU activations.
     """
@@ -46,7 +47,6 @@ class Unet(nn.Module):
         self.head = nn.Sequential(nn.Conv2d(64, output_channels, 1))
 
     def forward(self, x):
-        # enc_features = []
         enc1 = self.enc_block1(x)
         x = self.pool(enc1)
         enc2 = self.enc_block2(x)
@@ -69,7 +69,7 @@ class Unet(nn.Module):
         x = self.upconv4(x)
         x = torch.cat([x, enc1], dim=1)
         x = self.dec_block4(x)
-        return {"out": self.head(x)}
+        return self.head(x)
 
 
 def get_Unet(outputchannels=1, input_size=512):
@@ -141,5 +141,4 @@ if __name__ == "__main__":
     print(type(batch[0]))
     output = model(batch)  # ["out"] #.detach()
 
-    print(output.shape)
     prediction = output.squeeze(0).squeeze(0)
