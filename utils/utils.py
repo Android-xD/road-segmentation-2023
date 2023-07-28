@@ -104,11 +104,15 @@ def f1_score(y_true, y_pred):
     Returns:
         float: The F1 score value.
     """
-    # Calculate the precision, and recall
-    _, precision, recall = accuracy_precision_and_recall(y_true, y_pred)
+    # Count the True Positives (TP)
+    TP = torch.count_nonzero(y_true[1 == y_pred])
 
-    # Calculate the F1 score
-    return 2 * (precision * recall) / (precision + recall + torch.finfo(torch.float32).eps)
+    # Compute recall and precision
+    recall = TP / (torch.count_nonzero(y_true) + torch.finfo(torch.float32).eps)
+    precision = TP / (torch.count_nonzero(y_pred) + torch.finfo(torch.float32).eps)
+
+    # Compute F1 score
+    return 2. / (1 / recall + 1 / precision)
 
 
 def accuracy_precision_and_recall(y_true, y_pred):
@@ -122,23 +126,21 @@ def accuracy_precision_and_recall(y_true, y_pred):
     Returns:
         tuple: A tuple containing the calculated values of Accuracy, Precision, and Recall.
     """
-    # Count the True Positives (TP), True Negatives (TN), False Positives (FP), and False Negatives (FN)
+    # Count the True Positives (TP)
     TP = torch.count_nonzero(y_true[1 == y_pred])
-    TN = torch.count_nonzero(y_true[0 == y_pred])
-    FP = torch.count_nonzero(y_true[0 == y_pred] - y_pred[0 == y_pred])
-    FN = torch.count_nonzero(y_true[1 == y_pred] - y_pred[1 == y_pred])
 
-    # Calculate Accuracy, Recall, and Precision
-    accuracy = (TP + TN) / (TP + TN + FP + FN + torch.finfo(torch.float32).eps)
-    recall = TP / (TP + FN + torch.finfo(torch.float32).eps)
-    precision = TP / (TP + FP + torch.finfo(torch.float32).eps)
+    # Compute accuracy, recall, and precision
+    accuracy = 1- torch.count_nonzero(y_true - y_pred) / torch.numel(y_true)
+    recall = TP / (torch.count_nonzero(y_true) + torch.finfo(torch.float32).eps)
+    precision = TP / (torch.count_nonzero(y_pred) + torch.finfo(torch.float32).eps)
 
     return accuracy, precision, recall
 
 
 def f1_loss(y_true, y_pred):
     """
-    Calculates the F1 loss for binary classification.
+    Calculates the F1 loss for binary classification in a differentiable manner.
+    Source: https://www.kaggle.com/code/rejpalcz/best-loss-function-for-f1-score-metric/notebook
 
     Args:
         y_true (torch.Tensor): The true binary labels (ground truth) of shape (N,).
@@ -147,10 +149,19 @@ def f1_loss(y_true, y_pred):
     Returns:
         float: The F1 loss value.
     """
-    # Calculate the F1 score
-    f1 = f1_score(y_true, y_pred)
-    
-    # Calculate the F1 loss
+    # Count the True Positives (TP), True Negatives (TN), False Positives (FP), and False Negatives (FN) in a differentiable manner
+    tp = torch.sum(y_true * y_pred, axis=0)
+    tn = torch.sum((1 - y_true) * (1 - y_pred), axis=0)
+    fp = torch.sum((1 - y_true) * y_pred, axis=0)
+    fn = torch.sum(y_true * (1 - y_pred), axis=0)
+
+    # Compute precision and recall
+    p = tp / (tp + fp + torch.finfo(torch.float32).eps)
+    r = tp / (tp + fn + torch.finfo(torch.float32).eps)
+
+    # Compute F1 score
+    f1 = 2 * p * r / (p + r + torch.finfo(torch.float32).eps)
+    f1 = torch.where(torch.isnan(f1), torch.zeros_like(f1), f1)
     return 1 - torch.mean(f1)
 
 
