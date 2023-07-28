@@ -10,4 +10,4 @@
 #SBATCH --open-mode=truncate # to overrides out and err files, you can also use
 
 source startup.sh
-python ../train.py
+python train.py
