@@ -68,6 +68,18 @@ def parse_args():
                         help='frequency of logging',
                         default=1,
                         type=int)
+
+    # rich labels
+    parser.add_argument('--full',
+                        help='train on full dataset',
+                        default=False,
+                        type=bool)
+
+    # rich labels
+    parser.add_argument('--augmentations',
+                        help='use augmentations or not',
+                        default=True,
+                        type=bool)
     
     # parse arguments
     args = parser.parse_args()
@@ -137,12 +149,14 @@ if __name__ == '__main__':
         model.load_state_dict(state_dict)
 
     # create the dataset
-    dataset_aug = CustomImageDataset(training_set, train=True, rich=args.rich, geo_aug=True, color_aug=True)
+    dataset_aug = CustomImageDataset(training_set, train=True, rich=args.rich, geo_aug=args.augmentations, color_aug=args.augmentations)
     dataset_clean = CustomImageDataset(training_set, train=True, rich=args.rich, geo_aug=False, color_aug=False)
 
     # split the dataset into train, calibration, and validation sets
     train_indices, cal_indices, val_indices = split(len(dataset_aug), [0.90, 0.05, 0.05])
     train_dataset = Subset(dataset_aug, train_indices)
+    if args.full:
+        train_dataset = dataset_aug
     cal_dataset = Subset(dataset_clean, cal_indices)
     val_dataset = Subset(dataset_clean, val_indices)
 
