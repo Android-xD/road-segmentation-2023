@@ -82,11 +82,11 @@ if __name__ == '__main__':
     else:
         raise ValueError('Invalid model name')
 
-    model, preprocess, _ = get_model(1, 400)
+    model, preprocess, postprocess = get_model(1, 400)
     state_dict = torch.load(args.load_model, map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()
-    query = lambda input : model(preprocess(input))['out']
+    query = lambda input : postprocess(model(preprocess(input)))
     store_folder = "out/prediction"
     os.makedirs(store_folder, exist_ok=True)
     for i, (input, image_filenames) in enumerate(val_loader):

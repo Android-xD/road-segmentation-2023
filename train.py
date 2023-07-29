@@ -57,6 +57,12 @@ def parse_args():
                         default=30,
                         type=int)
 
+    # learning rate
+    parser.add_argument('--lr',
+                        help='learning rate',
+                        default=1e-4,
+                        type=float)
+
     # rich labels
     parser.add_argument('--rich',
                         help='rich labels',
@@ -193,7 +199,7 @@ if __name__ == '__main__':
         loss_fn = bce_loss
 
     # set the optimizer
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     scheduler = lr_scheduler.LinearLR(optimizer, start_factor=1., end_factor=1.0, total_iters=60)
 
 

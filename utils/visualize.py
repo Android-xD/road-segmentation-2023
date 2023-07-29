@@ -18,10 +18,21 @@ def show_img_mask(img, mask):
     plt.imshow(mask.squeeze())
     plt.show()
 
+def overlay(input,output, alpha=0.3):
+    img = np.transpose(input.squeeze(), (1, 2, 0)).numpy()
+    img = img / 255.
+
+    mask = output.squeeze().numpy()
+    color_map = plt.get_cmap('jet')  # choose a colormap
+    color_image = color_map(mask)
+    alpha = np.clip(mask[:, :, None],0,1)
+    return (1 - alpha) * img + alpha * color_image[:, :, :3]
+
 
 def plot_images(imgs, titles=None, cmaps='gray', dpi=100, pad=.5,
                 adaptive=True, hpad=1.):
     """
+    source: https://github.com/cvg/Hierarchical-Localization/blob/master/hloc/utils/viz.py
     Display a set of images horizontally in a single figure.
 
     Args:

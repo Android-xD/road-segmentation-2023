@@ -7,6 +7,7 @@ import torch
 import torch.nn.functional as F
 import torchvision.transforms as T
 from sklearn.metrics import accuracy_score, f1_score
+from models.fpn import get_fpn
 
 import utils.visualize as vis
 from dataset import CustomImageDataset
@@ -32,7 +33,7 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess, _ = createDeepLabv3(1, 400)
+    model, preprocess, postprocess = createDeepLabv3(1, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()
@@ -46,7 +47,7 @@ if __name__ == '__main__':
     classifier.eval()
 
 
-    query = lambda input : model(preprocess(input))['out']
+    query = lambda input : postprocess(model(preprocess(input)))
     store_folder = "out/prediction"
     os.makedirs(store_folder, exist_ok=True)
     for i, (input, image_filenames) in enumerate(val_loader):

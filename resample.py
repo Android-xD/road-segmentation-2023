@@ -6,15 +6,16 @@ from tqdm import tqdm
 
 from dataset import CustomImageDataset
 from models.deeplabv3 import createDeepLabv3
+from models.fpn import get_fpn
 from utils.utils import nanstd
-from utils.visualize import plot_images
+from utils.visualize import plot_images, overlay
 
 torch.manual_seed(0)
 use_cuda = torch.cuda.is_available()
 # Define the device to be used for computation
 device = torch.device("cuda" if use_cuda else "cpu")
 
-def resample_output(query, path, index, n_samples=20, rich =True):
+def resample_output(query, path, index, n_samples=20, rich =True, generate_plot=False):
     with torch.no_grad():
         dataset = CustomImageDataset(path, train=False, geo_aug=False, color_aug=False)
         dataset_adapt = CustomImageDataset(path, train=False, geo_aug=True, color_aug=True)
@@ -47,6 +48,18 @@ def resample_output(query, path, index, n_samples=20, rich =True):
 
             output_samples[j] = dataset_adapt.affineTransform.backward(output_sample)
             output_masks[j] = torch.round(dataset_adapt.affineTransform.backward(torch.ones_like(output)))
+            if generate_plot and j < 5:
+                img1 = np.transpose(input[0].cpu().detach() / 255., (1, 2, 0))
+                img2 = np.transpose(input_sample[0].cpu().detach() / 255., (1, 2, 0))
+                back_w = dataset_adapt.affineTransform.backward(input_sample)
+
+                out = [overlay(input_sample, F.sigmoid(output_sample)),
+                       np.transpose(output_masks[j], (1, 2, 0)) * overlay(back_w, F.sigmoid(
+                           output_samples[j, 0]))]  # , sdf, width, dir, tile]
+                images = [img1, img2] + out
+                names = ["Input Image", "Transformed Image", "Output", "Inverted Output"]
+                plot_images(images, names, hpad=1)
+                plt.savefig(f"./figures/resample_one_{i}_{j}.png")
 
         return output_samples, output_masks
 
@@ -88,7 +101,8 @@ def view_output(input,output,target):
 
 
 if __name__ == '__main__':
-    test_set = r"./data/test/images"
+
+    test_set = r"./data/test"
     training_set = r"./data/training"
 
     # Check if GPU is available
@@ -98,17 +112,17 @@ if __name__ == '__main__':
     device = torch.device("cuda" if use_cuda else "cpu")
 
 
-    model, preprocess, _ = createDeepLabv3(5, 400)
+    model, preprocess, postprocess = get_fpn(1, 400)
 
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()
 
-    dataset = CustomImageDataset(training_set, train=False, color_aug=False, geo_aug=False)
-    query = lambda input : model(preprocess(input))['out']
+    dataset = CustomImageDataset(test_set, train=False, color_aug=False, geo_aug=False)
+    query = lambda input : postprocess(model(preprocess(input)))
     for i in range(len(dataset)):
-        output = F.sigmoid(resample(query, training_set, i, 1))
-        output_samples, output_masks = resample_output(query, training_set, i, 10)
+        output = F.sigmoid(resample(query, test_set, i, 1))
+        output_samples, output_masks = resample_output(query, test_set, i, 50, True)
         output_samples[output_masks == 0] = torch.nan
         output_mode, _ = F.sigmoid(output_samples).nanmedian(keepdim=True, dim=0)
         output_mean = F.sigmoid(output_samples).nanmean(keepdim=True, dim=0)
