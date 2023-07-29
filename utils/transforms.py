@@ -3,15 +3,15 @@ import torch.nn as nn
 import random
 import numpy as np
 import torch
-from perlin2d import generate_perlin_noise_2d
+from utils.perlin2d import generate_perlin_noise_2d
 random.seed(0)
 
 
 class GeometricTransform:
-    """ Enables Geometric transforms on img and mask simultaneously.
-
-    We employ reflection padding, since it ensures that the roads are not cutoff, and it"""
-
+    """ 
+    Enables Geometric transforms on img and mask simultaneously.
+    We employ reflection padding, since it ensures that the roads are not cutoff.
+    """
     def __init__(self):
         # sample ranges
         self.max_angle = 180
@@ -34,6 +34,14 @@ class GeometricTransform:
         self.pad = nn.ReflectionPad2d(300)
 
     def __call__(self, x):
+        """
+        Apply the affine transformation.
+
+        Args:
+            x (PIL Image): Image to be transformed.
+        Returns:
+            PIL Image: Affine transformed image.
+        """
         if self.vfilp:
             x = TF.vflip(x)
         if self.hfilp:
@@ -44,6 +52,14 @@ class GeometricTransform:
         return x
 
     def backward(self, x):
+        """
+        Undo the affine transformation.
+
+        Args:
+            x (PIL Image): Affine transformed imgage.
+        Returns:
+            PIL Image: Image before affine transformation.
+        """
         x = TF.center_crop(x, 400)
         # invert the affine warp
         theta = np.deg2rad(self.angle)
@@ -59,6 +75,9 @@ class GeometricTransform:
         return x
 
     def sample_params(self):
+        """
+        Sample new parameters for the affine transformation.
+        """
         self.hfilp = random.random() < self.hfilp_prob
         self.vfilp = random.random() < self.vfilp_prob
         self.angle = random.uniform(-self.max_angle, self.max_angle)
@@ -67,7 +86,9 @@ class GeometricTransform:
         self.shear = random.random()*self.max_shear
 
     def zero_params(self):
-        # state
+        """
+        Set all parameters to zero.
+        """
         self.angle = 0
         self.translate = [0, 0]
         self.scale = 1
@@ -76,9 +97,10 @@ class GeometricTransform:
         self.vfilp = False
 
 
-import matplotlib.pyplot as plt
-
 class AddPerlinNoise:
+    """
+    Adds perlin noise to the image.
+    """
     def __init__(self, res=8,h=0.1,s=0.1,v=10):
         self.res = res
         self.h = h
@@ -86,36 +108,46 @@ class AddPerlinNoise:
         self.v = v
 
     def __call__(self, tensor):
+        """
+        Apply the color augmentation.
+
+        Args:
+            tensor (Tensor): Tensor image of size (C, H, W) to be color augmented.
+        Returns:
+            Tensor: Color augmented image.
+        """
+        # pad to multiple of res
         h, w = tensor.shape[-2:]
         ph, pw = map(lambda h: int(np.ceil(h / self.res)) * self.res, [h, w])
 
+        # generate noise
         noise = np.array([generate_perlin_noise_2d((ph, pw),(self.res, self.res)) for i in range(3)])
-        #noise += np.array([generate_perlin_noise_2d((ph, pw), (2*self.res, 2*self.res)) for i in range(3)])
         noise = noise[:, :h, :w]
         noise -= np.mean(noise)
         noise[0] = self.h * noise[0]
         noise[1] = self.s * noise[1]
         noise[2] = self.v * noise[2]
-
         color_noise = torch.tensor(noise, dtype=float)
 
+        # apply noise
         tensor = rgb2hsv_torch(tensor.unsqueeze(0).to(torch.float))
         tensor = tensor.to(float) + color_noise
 
-
+        # clip and convert back to uint8
         tensor = hsv2rgb_torch(tensor)
         tensor = tensor.squeeze(0)
         tensor = torch.clip(tensor, 0, 255)
         return tensor.to(torch.uint8)
 
     def __repr__(self):
+        """
+        Return a string that describes the transform.
+        """
         return self.__class__.__name__ + '(mean={0}, std={1})'.format(self.mean, self.std)
 
 
-
-
 def rgb2hsv_torch(rgb: torch.Tensor) -> torch.Tensor:
-    """https://github.com/limacv/RGB_HSV_HSL/blob/master/color_torch.py"""
+    """Source: https://github.com/limacv/RGB_HSV_HSL/blob/master/color_torch.py"""
     cmax, cmax_idx = torch.max(rgb, dim=1, keepdim=True)
     cmin = torch.min(rgb, dim=1, keepdim=True)[0]
     delta = cmax - cmin
@@ -132,7 +164,7 @@ def rgb2hsv_torch(rgb: torch.Tensor) -> torch.Tensor:
 
 
 def hsv2rgb_torch(hsv: torch.Tensor) -> torch.Tensor:
-    """https://github.com/limacv/RGB_HSV_HSL/blob/master/color_torch.py"""
+    """Source: https://github.com/limacv/RGB_HSV_HSL/blob/master/color_torch.py"""
     hsv_h, hsv_s, hsv_l = hsv[:, 0:1], hsv[:, 1:2], hsv[:, 2:3]
     _c = hsv_l * hsv_s
     _x = _c * (- torch.abs(hsv_h * 6. % 2. - 1) + 1.)

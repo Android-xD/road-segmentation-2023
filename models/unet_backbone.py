@@ -1,12 +1,15 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 import torchvision
+from torchvision.models import ResNet152_Weights
 
 
 class Block(nn.Module):
-    # a repeating structure composed of two convolutional layers with batch normalization and ReLU activations
+    """ 
+    Source: project_3_final.ipynb provided in class
+    A repeating structure composed of two convolutional layers 
+    with batch normalization and ReLU activations.
+    """
     def __init__(self, in_ch, out_ch):
         super().__init__()
         self.block = nn.Sequential(nn.Conv2d(in_channels=in_ch, out_channels=out_ch, kernel_size=3, padding=1),
@@ -19,17 +22,31 @@ class Block(nn.Module):
         return self.block(x)
 
 
-class Unet(nn.Module):
-    def __init__(self, output_channels=2, chs=(3, 64, 128, 256, 512, 1024)):
+
+class ResnetUNet(nn.Module):
+    """
+    ResnetUNet with skip connections.
+    """
+    def __init__(self, pretrained=False, freeze=False):
         super().__init__()
-        self.enc_block1 = Block(3, 64)
-        self.enc_block2 = Block(64, 128)
-        self.enc_block3 = Block(128, 256)
-        self.enc_block4 = Block(256, 512)
-        self.enc_block5 = Block(512, 1024)
-        self.enc_block6 = Block(1024, 2048)
+
+        self.freeze = freeze
+        if freeze:
+            assert pretrained
+
+        # ResNet-18, optionally pretrained in ImageNet
+        weights = ResNet152_Weights.DEFAULT
+        self.resnet = torchvision.models.resnet152(weights=weights)
+        if freeze:
+            for param in self.resnet.parameters():
+                param.requires_grad = False
+
+        # Override the final layers: we want to extract the full 7x7 final feature map
+        self.resnet.avgpool = nn.Identity()
+        self.resnet.fc = nn.Identity()
 
         self.pool = nn.MaxPool2d(2)
+        self.drop = nn.Dropout2d(p=0.5)
         self.upconv6 = nn.ConvTranspose2d(2048, 1024, 2, 2)
         self.upconv1 = nn.ConvTranspose2d(1024, 512, 2, 2)
         self.upconv2 = nn.ConvTranspose2d(512, 256, 2, 2)
@@ -40,37 +57,42 @@ class Unet(nn.Module):
         self.dec_block2 = Block(512, 256)
         self.dec_block3 = Block(256, 128)
         self.dec_block4 = Block(128, 64)
-        self.head = nn.Sequential(nn.Conv2d(64, output_channels, 1))
+        self.dec_block7 = Block(64, 64)
+        self.up = nn.Upsample(scale_factor=2, mode='nearest')
+        self.head = nn.Sequential(nn.Conv2d(64, 2, 1))
 
     def forward(self, x):
-        # enc_features = []
-        enc1 = self.enc_block1(x)
-        x = self.pool(enc1)
-        enc2 = self.enc_block2(x)
-        x = self.pool(enc2)
-        enc3 = self.enc_block3(x)
-        x = self.pool(enc3)
-        enc4 = self.enc_block4(x)
-        x = self.pool(enc4)
-        enc5 = self.enc_block5(x)
+        if self.freeze:
+            self.resnet.eval()
 
-        x = self.upconv1(enc5)
-        x = torch.cat([x, enc4], dim=1)
+        x = self.resnet.conv1(x)
+        x = self.resnet.bn1(x)
+        x0 = self.resnet.relu(x)
+        x = self.resnet.maxpool(x0)
+
+        x1 = self.resnet.layer1(x)
+        x2 = self.resnet.layer2(x1)
+        x = self.resnet.layer3(x2)
+
+        x = self.upconv1(x)
+        x = torch.cat([x, x2], dim=1)
         x = self.dec_block1(x)
         x = self.upconv2(x)
-        x = torch.cat([x, enc3], dim=1)
+        x = torch.cat([x, x1], dim=1)
         x = self.dec_block2(x)
         x = self.upconv3(x)
-        x = torch.cat([x, enc2], dim=1)
+        x = torch.cat([x, x], dim=1)
         x = self.dec_block3(x)
         x = self.upconv4(x)
-        x = torch.cat([x, enc1], dim=1)
+        x = torch.cat([x, x], dim=1)
         x = self.dec_block4(x)
-        return {"out": self.head(x)}
+
+        return self.head(x)
 
 
 def get_Unet(outputchannels=1, input_size=512):
-    """ Basic Unet Architecture.
+    """ 
+    Basic Unet Architecture with resnet backbone.
 
     Args:
         outputchannels (int, optional): The number of output channels
@@ -79,7 +101,7 @@ def get_Unet(outputchannels=1, input_size=512):
     Returns:
         model: Returns the Unet model with preprocess method.
     """
-    model = Unet(outputchannels, chs=(3, 64, 128, 256, 512, 1024))
+    model = ResnetUNet(pretrained=True, freeze=False)
 
     # Set the model in training mode
     model.train()
@@ -87,20 +109,24 @@ def get_Unet(outputchannels=1, input_size=512):
     # Move the model to the GPU
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
-    
+
+    # Define the preprocessing function
     if torch.cuda.is_available():
         pre = lambda x: x.type('torch.cuda.FloatTensor')
     else:
         pre = lambda x: x.type('torch.FloatTensor')
 
+    # return model, preprocessing function, and postprocessing function
     return model, pre, lambda x:x
 
 
 if __name__ == "__main__":
-    import matplotlib.pyplot as plt
+    """
+    Test the model.
+    """
+    import cv2
     import numpy as np
     from torchvision import transforms as T
-    import cv2
 
     # Check if GPU is available
     use_cuda = torch.cuda.is_available()
@@ -114,10 +140,11 @@ if __name__ == "__main__":
 
     image = torch.tensor(image, dtype=float)
     image = image.permute((2, 0, 1))
+
     image = image.unsqueeze(0)  # ahape -> [1,3,h,w]
 
     print(image.shape)
-    size = 400
+    size = 384
     crop = T.CenterCrop(size)
 
     label = torch.tensor(label, dtype=float)
@@ -126,8 +153,8 @@ if __name__ == "__main__":
     label = crop(label)
     image = crop(image)
     print(image.shape)
-    model = Unet()
-    model.train()
+    model = ResnetUNet()
+    model.eval()
     model.to(device)
     image = image.to(device)
     batch = image.type(torch.FloatTensor).to(device)

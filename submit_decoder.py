@@ -1,51 +1,29 @@
-import cv2
 import os
+
+import cv2
 import matplotlib.pyplot as plt
-from dataset import CustomImageDataset
 import numpy as np
 import torch
-import visualize as vis
-import torchvision.transforms as T
-from deeplabv3 import createDeepLabv3,load_model
-from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
+import torchvision.transforms as T
+from sklearn.metrics import accuracy_score, f1_score
+from models.fpn import get_fpn
+
+import utils.visualize as vis
+from dataset import CustomImageDataset
+from decoder import decoder, quantile_aggregate_tile
 from mask_to_submission import main
+from models.deeplabv3 import createDeepLabv3, load_model
 from resample import resample, resample_output
-from decoder import decoder, quantile_tile
-from utils import un_aggregate_tile, nanstd, quantile_tile
-
-# Check if GPU is available
-use_cuda = torch.cuda.is_available()
-
-# Define the device to be used for computation
-device = torch.device("cuda" if use_cuda else "cpu")
-
-torch.manual_seed(0)
-
-def aggregate_tile(tensor):
-    """ takes a """
-    b, _, h, w = tensor.shape
-    patch_h = h // 16
-    patch_w = w // 16
-
-    # Reshape the tensor
-    output_tensor = tensor.view(b, 1, patch_h, 16, patch_w, 16)
-
-    # Permute the dimensions to get the desired shape
-    #output_tensor = output_tensor.permute(0, 1, 2, 4, 3, 5)
-    return torch.mean(output_tensor, dim=(3, 5)) > 0.25
-
-
-
+from utils.utils import (aggregate_tile, nanstd, quantile_aggregate_tile,
+                         un_aggregate_tile)
 
 if __name__ == '__main__':
     test_set = r"./data/test"
-
-    # Check if GPU is available
-    use_cuda = torch.cuda.is_available()
-
     # Define the device to be used for computation
+    use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
+
     dataset = CustomImageDataset(test_set, False,color_aug=False, geo_aug=False)
     val_loader = torch.utils.data.DataLoader(
         dataset,
@@ -55,7 +33,7 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(1, 400)
+    model, preprocess, postprocess = createDeepLabv3(1, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()
@@ -69,7 +47,7 @@ if __name__ == '__main__':
     classifier.eval()
 
 
-    query = lambda input : model(preprocess(input))['out']
+    query = lambda input : postprocess(model(preprocess(input)))
     store_folder = "out/prediction"
     os.makedirs(store_folder, exist_ok=True)
     for i, (input, image_filenames) in enumerate(val_loader):
@@ -82,7 +60,7 @@ if __name__ == '__main__':
         output_std = nanstd(F.sigmoid(output_samples), keepdim=True, dim=0)
         X = torch.zeros((num_patches_per_image,num_features))
         for j, output in enumerate([output_i, output_mean, output_mode, output_std]):
-            quantiles = quantile_tile(output, num_ticks)
+            quantiles = quantile_aggregate_tile(output, num_ticks)
             quantiles = torch.flatten(quantiles, start_dim=1, end_dim=4).T
             X[:, num_ticks * j:num_ticks * (j + 1)] = quantiles
 

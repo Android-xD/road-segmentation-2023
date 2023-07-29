@@ -56,7 +56,17 @@ def createDeepLabv3(outputchannels=1, input_size=512):
 
 
 def load_model(model_state_file, outputchannels=1, input_size=512):
-    """Load file from path."""
+    """
+    Load file from path.
+
+    Args:
+        model_state_file (str): Path to the trained model state file.
+        outputchannels (int, optional): The number of output channels. Default is 1.
+        input_size (int, optional): The size of the input image. Default is 512.
+
+    Returns:
+        model: Returns the loaded model and preprocessing function.
+    """
     createDeepLabv3(outputchannels=outputchannels, input_size=input_size)
 
     state_dict = torch.load(model_state_file, map_location=torch.device("cpu"))
@@ -65,11 +75,12 @@ def load_model(model_state_file, outputchannels=1, input_size=512):
 
 
 if __name__ == "__main__":
+    """
+    Test the model loader.
+    """
     import matplotlib.pyplot as plt
-    import numpy as np
     from torchvision import transforms as T
     import cv2
-
 
     # Check if GPU is available
     use_cuda = torch.cuda.is_available()
@@ -95,7 +106,7 @@ if __name__ == "__main__":
     label = crop(label)
     image = crop(image)
     print(image.shape)
-    model, preprocess = createDeepLabv3(1, size)
+    model, preprocess, _ = createDeepLabv3(1, size)
     model.eval()
     image = image.to(device)
     batch = preprocess(image)

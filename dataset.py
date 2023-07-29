@@ -1,20 +1,28 @@
-import os
-import torch
-from torch.utils.data import Dataset
-from torchvision import datasets
-from torchvision.transforms import ToTensor
-import torchvision.transforms as T
-import matplotlib.pyplot as plt
-from torchvision.io import read_image, ImageReadMode
-from torch.utils.data import Subset
-import transforms
 import glob
-from make_rich_labels import dir_from_sdf
+import os
 
+import matplotlib.pyplot as plt
+import numpy as np
+import torch
+import torchvision.transforms as T
+from torch.utils.data import Dataset
+from torchvision.io import ImageReadMode, read_image
+
+import utils.transforms as transforms
+import utils.visualize as vis
+from utils.make_rich_labels import dir_from_sdf
 
 
 def split(dataset_size, split_proportions=[0.8,0.2]):
+    """
+    Splits a dataset into given proportions.
 
+    Args:
+        dataset_size (int): number of samples in the dataset
+        split_proportions (list[int]): list of proportions for each split
+
+    returns: tuple of indices for each split
+    """
     assert sum(split_proportions) == 1, "The sum of split_proportions should be 1."
     indices = torch.randperm(dataset_size)
 
@@ -29,31 +37,49 @@ def split(dataset_size, split_proportions=[0.8,0.2]):
 
     return tuple(splits)
 
+
 class CustomImageDataset(Dataset):
     def __init__(self, data_dir, train=True, rich=True, geo_aug=True, color_aug=True):
         """
-        train: specifies if there are labels or not
+        Custom PyTorch Dataset for image data with optional augmentation and rich labels.
+
+        Args:
+            data_dir (str): The directory path where the satellite image and map data is stored.
+            train (bool): If True, there are labels (masks) for the images (ie. training set)
+            rich (bool): If True, loads additional rich ground truth information.
+            geo_aug (bool): If True, enables geometric augmentation of the images.
+            color_aug (bool): If True, enables color augmentation of the images.
         """
         self.train = train
         self.rich = rich
         self.geo_aug = geo_aug
         self.color_aug = color_aug
 
+        # get image and label paths
+        assert os.path.exists(os.path.join(data_dir, "images")), "The data directory does not exist."
         self.img_list = glob.glob(os.path.join(data_dir, "images", "*"))
         if self.train:
+            assert os.path.exists(os.path.join(data_dir, "groundtruth")), "The groundtruth directory does not exist."
             self.mask_list_gt = glob.glob(os.path.join(data_dir, "groundtruth", "*"))
             if self.rich:
+                assert os.path.exists(os.path.join(data_dir, "groundtruth_sdf")), "The groundtruth_sdf directory does not exist. Make sure to run make_rich_labels.py first."
+                assert os.path.exists(os.path.join(data_dir, "groundtruth_width")), "The groundtruth_width directory does not exist. Make sure to run make_rich_labels.py first."
                 self.mask_list_sdf = glob.glob(os.path.join(data_dir, "groundtruth_sdf", "*"))
                 self.mask_list_width = glob.glob(os.path.join(data_dir, "groundtruth_width", "*"))
 
+        # initialize geometric and color transforms
         self.affineTransform = transforms.GeometricTransform()
-        self.color_transform = T.Compose([
-            T.ColorJitter(0.1, 0.2, 0.1),
-            transforms.AddPerlinNoise(8, 0.02, 0.1, 10),
-        ]
+        self.color_transform = T.Compose(
+            [
+                T.ColorJitter(0.1, 0.2, 0.1),
+                transforms.AddPerlinNoise(8, 0.02, 0.1, 10),
+            ]
         )
 
     def __len__(self):
+        """
+        Returns the number of images in the dataset.
+        """
         return len(self.img_list)
 
     def __getitem__(self, idx):
@@ -82,9 +108,8 @@ class CustomImageDataset(Dataset):
 
                 # compute direction
                 mask_dir = dir_from_sdf(mask_sdf)
-
+                # compute sdf
                 mask_sdf *= self.affineTransform.scale
-                # range (0,255) -> (0, 64) -rescale-> (0,1)
                 mask_sdf = torch.clip(mask_sdf/64, 0, 1)
 
                 mask_width = mask_width/70 # be in [0,1]
@@ -96,17 +121,23 @@ class CustomImageDataset(Dataset):
             mask = self.img_list[idx]
         return image, mask
 
+
 if __name__ == "__main__":
-    import visualize as vis
-    import numpy as np
+    """
+    Test the dataset class.
+    This script will generate example plots of the augmentations and rich labels and store them in the figures directory.
+    """
+    # create figures directory
     store_figures = r"./figures"
     os.makedirs(store_figures, exist_ok=True)
 
-    ## augmentation plots
+    # create datasets
     dataset_clean = CustomImageDataset(r"./data/training", rich=False, geo_aug=False, color_aug=False)
     dataset_color = CustomImageDataset(r"./data/training", rich=False, geo_aug=False, color_aug=True)
     dataset_geo = CustomImageDataset(r"./data/training", rich=False, geo_aug=True, color_aug=False)
+    dataset_rich = CustomImageDataset(r"./data/training", rich=True, geo_aug=False, color_aug=False)
 
+    # augmentation plots
     for i in range(10):
         img, label = dataset_clean[i]
         color, _ = dataset_color[i]
@@ -115,17 +146,15 @@ if __name__ == "__main__":
         img_list = [img, color, geo]
         img_list = [np.transpose(im.squeeze(), (1, 2, 0)) for im in img_list]
         img_list = [img_list[0], label[0], img_list[1], img_list[2], label_aug[0]]
-        vis.plot_images(img_list, titles=["Original Image", "Original Mask", "Color Augmentation", "Geometric Augmentation", "Augmented Mask"], hpad=0.5)
+        vis.plot_images(img_list, titles=["Original Image", "Original Mask", "Color Augmentation", "Geometric Augmentation", "Augmented Mask"])
         plt.savefig(f"{store_figures}/augmentations_{i}.png")
 
-    ## Rich label plots
-    dataset_rich = CustomImageDataset(r"./data/training", rich=True, geo_aug=False, color_aug=False)
-
+    # rich label plots
     for i in range(10):
         img, label = dataset_rich[i]
         img = np.transpose(img.squeeze(), (1, 2, 0))
         label[3, label[0] != 1] = 0
 
         img_list = [img] + [label[j] for j in range(label.shape[0])]
-        vis.plot_images(img_list, titles=["Original Image", "Original Mask", "Distance Function", "Road Width", "Road Direction"], hpad=0.5)
+        vis.plot_images(img_list, titles=["Original Image", "Original Mask", "Distance Function", "Road Width", "Road Direction"])
         plt.savefig(f"{store_figures}/rich_labels_{i}.png")
