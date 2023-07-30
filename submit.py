@@ -1,24 +1,18 @@
-import cv2
-import os
 import argparse
-import matplotlib.pyplot as plt
-from dataset import CustomImageDataset
+import os
+
+import cv2
 import numpy as np
 import torch
-import utils.visualize as vis
-import torchvision.transforms as T
-from models.deeplabv3 import createDeepLabv3,load_model
-from sklearn.metrics import f1_score, accuracy_score
 import torch.nn.functional as F
-from mask_to_submission import main
-from resample import resample
-from decoder import decoder, quantile_aggregate_tile
-from utils.utils import un_aggregate_tile
-from models.unet_backbone import get_Unet
+
+from dataset import CustomImageDataset
+from models.deeplabv3 import createDeepLabv3
 from models.fpn import get_fpn
+from models.unet_backbone import get_Unet
+from resample import resample
 
 torch.manual_seed(0)
-
 
 def parse_args():
     """
@@ -55,6 +49,9 @@ def parse_args():
     return args
 
 if __name__ == '__main__':
+    """
+    This script is used to generate the submission file for the Kaggle competition. 
+    """
     # parse arguments
     args = parse_args()
     test_set = r"./data/test"
@@ -82,11 +79,16 @@ if __name__ == '__main__':
     else:
         raise ValueError('Invalid model name')
 
+    # Load the model
     model, preprocess, postprocess = get_model(1, 400)
     state_dict = torch.load(args.load_model, map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()
+
+    # Define the query function
     query = lambda input : postprocess(model(preprocess(input)))
+
+    # Iterate over the data in the validation set and store the predictions
     store_folder = "out/prediction"
     os.makedirs(store_folder, exist_ok=True)
     for i, (input, image_filenames) in enumerate(val_loader):
@@ -95,13 +97,14 @@ if __name__ == '__main__':
         input = input.squeeze()
         # output = query(input.unsqueeze(0)) without resample
         output = resample(query, test_set, i, args.n_samples)
+    
         # normalize the output
         output = F.sigmoid(output[:,:1])
         pred = (255*(output > args.threshold)).detach().cpu().numpy().astype(np.uint8)
         j = 0
-            # vis.output_target_heat(input.detach()[j] / 255, output.detach()[j, 1], 0.3, None)
-            # plt.imshow(output[j, 1].detach().cpu().numpy())
-            # plt.show()
+        # vis.output_target_heat(input.detach()[j] / 255, output.detach()[j, 1], 0.3, None)
+        # plt.imshow(output[j, 1].detach().cpu().numpy())
+        # plt.show()
         img_name = os.path.basename(image_filenames[j])
         print(img_name)
         cv2.imwrite(f"{store_folder}/mask_{img_name}", pred[j, 0])
