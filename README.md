@@ -1,6 +1,6 @@
 # Road Segmentation
 
-## Setup on local Compuer
+## Setup on local Computer
 ```shell
 conda env create -f env.yml
 conda activate CIL
@@ -69,7 +69,7 @@ rm download
 ```
 
 ```
-google_data
+data_google
 ├── images
 │   ├── satimage_0.png
 │   ├── satimage_1.png
@@ -78,4 +78,28 @@ google_data
 │   ├── satimage_0.png
 │   ├── satimage_1.png
 │   ├── ...
+```
+
+## Reproducing our best performing model
+For the very last run we changed the parameters of the transform to keep the scale. So in order to get the exact same result, you will need to change the settings a bit. 
+
+Change the scale in `./utils/transforms.py` like so:
+```python
+class GeometricTransform:
+    def __init__(self):
+        self.min_scale = 0.999
+        self.max_scale = 1.
+```
+Change the threshold in `mask_to_submision.py`
+```python
+foreground_threshold = 0.35 # percentage of pixels of val 255 required to assign a foreground label to a patch
+```
+To reproduce our best performing model, you need to run the install script on euler and then submit the batch script `job_full.sh`, which runs the training on the full set of images. Make sure to load the data first, as described above.
+```shell
+# sets up the environment with its dependencies
+source install_pip.sh
+# runs the whole training
+sbatch job_full.sh
+# the output masks are written to ./out/predictions/
+# the submission file is written to ./submission.csv
 ```
