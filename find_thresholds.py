@@ -12,7 +12,14 @@ from utils.visualize import plot_images
 torch.manual_seed(0)
 
 def view_output(input, output, target):
-    # normalize the output
+    """
+    Visualize and compare the model's output and predictions.
+
+    Args:
+        input (torch.Tensor): Input image tensor.
+        output (torch.Tensor): Output tensor from the model.
+        target (torch.Tensor): Target (ground truth) tensor.
+    """    
     pred = output[:, :1]
     sdf = output[:, 1:2]
     width = output[:, 2:3]
@@ -22,9 +29,11 @@ def view_output(input, output, target):
     dir = output[:, 3:4]
     tile = F.sigmoid(output[:, :1])
 
+    # Create binary maps
     tiled = tile > 0.2
     gt = target[:,:1]> 0.5
 
+    # Visualize the images and predictions
     j = 0
     img = np.transpose(input.cpu().detach()[j] / 255., (1, 2, 0))
     out = [pred, sdf, width, dir, tile, tiled, gt]
@@ -40,25 +49,32 @@ if __name__ == '__main__':
     test_set = r"./data/test/images"
     training_set = r"./data/training"
 
+    # Load the  model with preprocess and postprocess functions
     model, preprocess, postprocess = createDeepLabv3(5, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()
 
+    # Create a query function
     query = lambda input : postprocess(model(preprocess(input)))
+
+    # Create a dataset
     dataset = CustomImageDataset(training_set, geo_aug=False,color_aug=False, train=True)
     m = 10 #len(dataset)
 
+    # Compute the thresholds space
     n_ticks = 101
     recall_space_16 = torch.zeros((m, n_ticks, n_ticks))
     precision_space_16 = torch.zeros((m, n_ticks, n_ticks))
     ticks = np.linspace(0, 1, n_ticks)
 
+    # Iterate over the dataset
     for i in range(m):
         input, target = dataset[i]
         input = input.unsqueeze(0)
         target = target.unsqueeze(0)
 
+        # Resample the model output and calculate accuracy, precision, and recall for various thresholds
         output = resample(query, training_set, i, 1)
         y_pred = F.sigmoid(output[:, :1])
         agg_target = aggregate_tile(target[:, :1])
@@ -67,11 +83,13 @@ if __name__ == '__main__':
                 _, precision_space_16[i, r, c], recall_space_16[i, r, c] = \
                     accuracy_precision_and_recall(agg_target, aggregate_tile((y_pred > th1) * 1.0, thresh=th2))
 
+        # Calculate F1 score space and current F1 score
         f1_space = 2. / (1 / torch.mean(recall_space_16[:i+1], dim=0) + 1 / torch.mean(precision_space_16[:i+1], dim=0))
         f1_space_cur = 2. / (
                     1 / recall_space_16[i] + 1 /precision_space_16[i])
         print(torch.max(f1_space), torch.max(f1_space_cur))
 
+    # Visualize the F1 score space
     plt.imshow(f1_space, cmap='jet')
     plt.colorbar()
     num_ticks = 11

@@ -83,8 +83,12 @@ class CustomImageDataset(Dataset):
         return len(self.img_list)
 
     def __getitem__(self, idx):
+        """
+        Returns a tuple of (image, mask) where mask is the ground truth plus optional rich labels.
+        """
         image = read_image(self.img_list[idx], ImageReadMode.RGB)
 
+        # apply augmentations
         if self.geo_aug:
             self.affineTransform.sample_params()
         else:
@@ -95,10 +99,14 @@ class CustomImageDataset(Dataset):
         if self.color_aug:
             image = self.color_transform(image)
 
+        # load labels
         if self.train:
+            # load ground truth label
             mask_gt = read_image(self.mask_list_gt[idx])
             mask_gt = self.affineTransform(mask_gt)
-            mask_gt[mask_gt > 0.5] = 1.
+            mask_gt[mask_gt > 0.5] = 1. # binarize
+
+            # load rich labels
             if self.rich:
                 mask_sdf = read_image(self.mask_list_sdf[idx])
                 mask_width = read_image(self.mask_list_width[idx])

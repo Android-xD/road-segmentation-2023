@@ -13,6 +13,14 @@ torch.manual_seed(0)
 
 
 def eval(model, dataset:CustomImageDataset, num_samples=10):
+    """
+    Evaluate the model on a subset of the dataset.
+
+    Args:
+        model (torch.nn.Module): The trained model to be evaluated.
+        dataset (CustomImageDataset): The dataset on which the model will be evaluated.
+        num_samples (int, optional): Number of samples to visualize. Defaults to 10.
+    """
     for i in range(int(len(dataset)*0.9), len(dataset)):
         combined = torch.zeros(dataset[0][1].size()[-3:])
         for j in range(num_samples):
@@ -25,6 +33,16 @@ def eval(model, dataset:CustomImageDataset, num_samples=10):
             vis.show_img_mask(img.detach(), output.detach())
 
 def nms(img, dir=None ):
+    """
+    Non-Maximum Suppression (NMS) on the input image.
+
+    Args:
+        img (np.ndarray): Input image to perform NMS on.
+        dir (np.ndarray, optional): Direction map for NMS. Defaults to None.
+
+    Returns:
+        np.ndarray: NMS result.
+    """
     if dir is None:
         img = cv2.GaussianBlur(img,ksize=(15, 15),sigmaX=5)
         dx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
@@ -67,6 +85,16 @@ def nms(img, dir=None ):
     return suppressed
 
 def prop(img,dir):
+    """
+    Perform propagation on the input image using the given direction map.
+
+    Args:
+        img (np.ndarray): Input image to perform propagation on.
+        dir (np.ndarray): Direction map for propagation.
+
+    Returns:
+        np.ndarray: Result of propagation.
+    """
     if dir is None:
         img = cv2.GaussianBlur(img,ksize=(15,15),sigmaX=5)
         dx = cv2.Sobel(img, cv2.CV_64F, 1, 0, ksize=3)
@@ -118,8 +146,8 @@ if __name__ == '__main__':
     use_cuda = torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
 
+    # Create dataset and dataloaders for training and validation
     dataset= CustomImageDataset(training_set, train=True, geo_aug=False, color_aug=False)
-
     train_indices, val_indices = split(len(dataset), [0.8, 0.2])
     train_dataset = Subset(dataset, train_indices)
     val_dataset = Subset(dataset, val_indices)
@@ -138,7 +166,8 @@ if __name__ == '__main__':
         pin_memory=True
     )
 
-    model, preprocess = createDeepLabv3(1, 400)
+    # Load the pre-trained DeepLabV3 model and its state dictionary
+    model, preprocess, _ = createDeepLabv3(1, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
 

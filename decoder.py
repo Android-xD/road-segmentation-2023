@@ -37,13 +37,22 @@ class decoder(torch.nn.Module):
 
 
 def get_patch_dataset():
+    """
+    Extract features and labels from the custom image dataset.
+
+    Returns:
+        X (torch.Tensor): A tensor containing the extracted features from the dataset.
+        y (torch.Tensor): A tensor containing the corresponding labels for the features.
+    """
     training_set = r"./data/training"
 
-    model, preprocess = createDeepLabv3(1, 400)
+    # Load DeepLabv3 model
+    model, preprocess, _ = createDeepLabv3(1, 400)
     state_dict = torch.load("out/model_best.pth.tar", map_location=torch.device("cpu"))
     model.load_state_dict(state_dict)
     model.eval()
 
+    # Prepare dataset
     dataset = CustomImageDataset(training_set, train=True, color_aug=False, geo_aug=False)
     m = len(dataset)
     num_patches_per_image = (400//16)**2
@@ -53,7 +62,11 @@ def get_patch_dataset():
     X = torch.zeros((num_patches, num_features))
     y = torch.zeros((num_patches, 1))
     print(F"num images {m}\t num patches: {num_patches}")
+
+    # Function to query the DeepLabv3 model for output
     query = lambda input : model(preprocess(input))['out']
+
+    # Extract features and labels
     for i in range(m):
         target = dataset[i][1].unsqueeze(0)
         output_samples, output_masks = resample_output(query, training_set, i, 20)
@@ -75,23 +88,35 @@ def get_patch_dataset():
 
 
 if __name__ == '__main__':
+    # Get the feature dataset and labels
     X, y = get_patch_dataset()
+
+    # Save the feature dataset and labels for future use
     torch.save(X, "X.pt")
     torch.save(y, "y.pt")
+
+    # Load the dataset and labels
     X, y = torch.load("X.pt"), torch.load("y.pt")
 
+    # Get the number of samples and features
     n_samples, n_features = X.shape
 
     output_dir = "out"
+
+    # Set the random seed for reproducibility
     torch.manual_seed(0)
+
+    # Split the data into training and testing sets
     train_indices, test_indices = split(n_samples, [0.90, 0.1])
     X_train, y_train = X[train_indices], y[train_indices]
     X_test, y_test = X[test_indices], y[test_indices]
     print(X_train.shape, y_train.shape)
 
+    # Train a logistic regression model
     model = LogisticRegression()
     model.fit(X_train, y_train.ravel())
 
+    # Evaluate the model using the F1 score
     predicted_probs = model.predict_proba(X_test)[:, 1]  # Probability of the positive class (class 1)
     predicted_labels = model.predict(X_test)
     print(f1_score(y_test.ravel(), torch.tensor(predicted_labels)))
@@ -99,32 +124,41 @@ if __name__ == '__main__':
     store_folder = "out/prediction"
     os.makedirs(store_folder, exist_ok=True)
 
+    # move the model to the device (GPU or CPU)
     classifier = decoder(n_features)
     classifier = classifier.to(device)
+
+    # define the loss function and the optimizer
     loss = torch.nn.BCELoss()  # note that CrossEntropyLoss is for targets with more than 2 classes.
     optimizer = torch.optim.Adam(classifier.parameters(), lr=0.0005)
-    n_epochs = 100
 
+    # train the classifier
+    n_epochs = 100
     for e in range(n_epochs):
         x_data = Variable(X_train, requires_grad=False)
         y_data = Variable(y_train, requires_grad=False)
         x_b, y_b = x_data.to(device), y_data.to(device)
+
+        # Get the baseline prediction
         baseline_pred = (torch.mean((x_b > 0.25) * 1., dim=1) > 0.25) * 1.
         y = classifier(x_b)
 
-        # l = loss(y, t_data)
+        # Compute the loss
         l = f1_loss(y_b, y)
         baseline_pred = (torch.mean((x_b > 0.25) * 1., dim=1) > 0.25) * 1.
         learned_pred = (y > 0.5) * 1.
 
+        # Compute the F1 score for the learned and baseline predictions
         f1_learned = f1_score(y_b, learned_pred)
-
         f1_thresh = f1_score(y_b, baseline_pred)
         print(f"Train epoch:\t\t{e}\tloss:\t{l.item():.4f},\t pred:\t{f1_learned:.4f},\t baseline:\t{f1_thresh:.4f}\t impr:{f1_learned - f1_thresh:.4f}")
         optimizer.zero_grad()
 
+        # backprop
         l.backward()
         optimizer.step()
+
+        # validation
         classifier.eval()
         with torch.no_grad():
             x_b, y_b = X_test.to(device), y_test.to(device)
@@ -138,4 +172,5 @@ if __name__ == '__main__':
             print(
                 f"Validation epoch:\t{e}\tloss:\t{l.item():.4f},\t pred:\t{f1_learned:.4f},\t baseline:\t{f1_thresh:.4f}\t impr:{f1_learned - f1_thresh:.4f}")
 
+    # save the model
     torch.save(classifier.state_dict(), os.path.join(output_dir, f'best_classifier.pth.tar'))
